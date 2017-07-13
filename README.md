@@ -2,7 +2,7 @@
 Uses Windows Restart Manager APIs to find processes locking one or multiple files.
 
 The code is CodeAnalysis clean (using Microsoft recommended rules) and has been tested on Windows 7 and Windows 10 (both x64).
-It is actually meant to be included in a library or such, but for quick tests a "Main" method is provied.
+It is actually meant to be included in a library or such, but for quick tests a "Main" method is provided.
 
 Example:
 
