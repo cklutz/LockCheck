@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="ApplicationStatus.cs" />
     <Compile Include="ApplicationType.cs" />
+    <Compile Include="ExceptionUtils.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="ProcessInfo.cs" />
     <Compile Include="Program.cs" />

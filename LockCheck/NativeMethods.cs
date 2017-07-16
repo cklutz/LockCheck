@@ -59,6 +59,8 @@ namespace LockCheck
         internal const int ERROR_MORE_DATA = 234;
         internal const int ERROR_ACCESS_DENIED = 5;
         internal const int ERROR_INVALID_HANDLE = 6;
+        internal const int ERROR_SHARING_VIOLATION = 32;
+        internal const int ERROR_LOCK_VIOLATION = 33;
         internal const int ERROR_CANCELLED = 1223;
 
 

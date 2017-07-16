@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace LockCheck
 {
@@ -47,6 +50,24 @@ namespace LockCheck
         public override string ToString()
         {
             return ProcessId + "@" + StartTime.ToString("s");
+        }
+
+        public static void Format(StringBuilder sb, IEnumerable<ProcessInfo> lockers, IEnumerable<string> fileNames, int? max = null)
+        {
+            if (lockers == null || !lockers.Any())
+                return;
+
+            int count = lockers.Count();
+            sb.AppendFormat("File {0} locked by: ", string.Join(", ", fileNames));
+            foreach (var locker in lockers.Take(max ?? Int32.MaxValue))
+            {
+                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, started {locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
+            }
+
+            if (count > max)
+            {
+                sb.AppendLine($"[{count - max} more processes...]");
+            }
         }
     }
 }
