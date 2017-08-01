@@ -124,7 +124,7 @@ namespace LockCheck
                     break;
             }
 
-            throw new Win32Exception(res, string.Format("{0} ({1}() error {2}: {3})", message, apiName, res, reason));
+            return new Win32Exception(res, string.Format("{0} ({1}() error {2}: {3})", message, apiName, res, reason));
         }
     }
 }
