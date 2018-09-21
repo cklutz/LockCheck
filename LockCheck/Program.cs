@@ -33,6 +33,7 @@ namespace LockCheck
 
                     Console.WriteLine("Process ID        : {0}", p.ProcessId);
                     Console.WriteLine("Process Start Time: {0}", p.StartTime.ToString("F"));
+                    Console.WriteLine("Process File Path : {0}", p.FilePath);
                     Console.WriteLine("Application Type  : {0}", p.ApplicationType);
                     Console.WriteLine("Application Status: {0}", p.ApplicationStatus);
                     Console.WriteLine("Application Name  : {0}", p.ApplicationName);
