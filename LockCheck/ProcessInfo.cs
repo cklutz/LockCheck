@@ -30,15 +30,18 @@ namespace LockCheck
                 }
 
                 FilePath = process.MainModule.FileName;
+                UserName = NativeMethods.GetProcessOwner(process.SafeHandle);
             }
             catch
             {
             }
         }
 
-        public int ProcessId { get; private set; }
-        public DateTime StartTime { get; private set; }
+        public int ProcessId { get; }
+        public DateTime StartTime { get; }
         public string ApplicationName { get; private set; }
+
+        public string UserName { get; private set; }
         public string FilePath { get; private set; }
         public string ServiceShortName { get; private set; }
         public ApplicationType ApplicationType { get; private set; }
@@ -77,7 +80,7 @@ namespace LockCheck
             sb.AppendFormat("File {0} locked by: ", string.Join(", ", fileNames));
             foreach (var locker in lockers.Take(max ?? Int32.MaxValue))
             {
-                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, started {locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
+                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, user={locker.UserName}, started {locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
             }
 
             if (count > max)
