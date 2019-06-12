@@ -1,14 +1,18 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace LockCheck
 {
-    internal class NativeMethods
+    internal static class NativeMethods
     {
         // ReSharper disable InconsistentNaming
 
         private const string RestartManagerDll = "rstrtmgr.dll";
+        private const string AdvApi32Dll = "advapi32.dll";
 
         [DllImport(RestartManagerDll, CharSet = CharSet.Unicode)]
         internal static extern int RmRegisterResources(uint pSessionHandle,
@@ -114,6 +118,72 @@ namespace LockCheck
             public uint TSSessionId;
             [MarshalAs(UnmanagedType.Bool)]
             public bool bRestartable;
+        }
+
+        [DllImport(AdvApi32Dll, SetLastError = true)]
+        internal static extern bool OpenProcessToken(SafeProcessHandle processHandle,
+            int desiredAccess, out SafeAccessTokenHandle tokenHandle);
+
+        [DllImport(AdvApi32Dll, CharSet = CharSet.Auto, SetLastError = true)]
+        internal static extern bool GetTokenInformation(SafeAccessTokenHandle hToken, TOKEN_INFORMATION_CLASS tokenInfoClass, IntPtr tokenInformation, int tokeInfoLength, ref int reqLength);
+
+        internal static string GetProcessOwner(SafeProcessHandle handle)
+        {
+            if (OpenProcessToken(handle, TOKEN_QUERY, out var token))
+            {
+                if (ProcessTokenToSid(token, out var sid))
+                {
+                    var x = new SecurityIdentifier(sid);
+                    return x.Translate(typeof(NTAccount)).Value;
+                }
+            }
+            return null;
+        }
+
+        internal static bool ProcessTokenToSid(SafeAccessTokenHandle token, out IntPtr sid)
+        {
+            const int bufLength = 256;
+            sid = IntPtr.Zero;
+            var tu = IntPtr.Zero;
+            try
+            {
+                tu = Marshal.AllocHGlobal(bufLength);
+                int cb = bufLength;
+                var ret = GetTokenInformation(token, NativeMethods.TOKEN_INFORMATION_CLASS.TokenUser, tu, cb, ref cb);
+                if (ret)
+                {
+                    var tokUser = (TOKEN_USER)Marshal.PtrToStructure(tu, typeof(TOKEN_USER));
+                    sid = tokUser.User.Sid;
+                }
+                return ret;
+            }
+            finally
+            {
+                if (tu != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(tu);
+                }
+            }
+        }
+
+        internal const int TOKEN_QUERY = 0x0008;
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct TOKEN_USER
+        {
+            public SID_AND_ATTRIBUTES User;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct SID_AND_ATTRIBUTES
+        {
+            public IntPtr Sid;
+            public int Attributes;
+        }
+
+        internal enum TOKEN_INFORMATION_CLASS
+        {
+            TokenUser = 1,
         }
 
         // ReSharper restore InconsistentNaming
