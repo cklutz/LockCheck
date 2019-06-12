@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -19,11 +20,26 @@ namespace LockCheck
             ApplicationStatus = (ApplicationStatus)processInfo.AppStatus;
             Restartable = processInfo.bRestartable;
             TerminalServicesSessionId = (int)processInfo.TSSessionId;
+
+            try
+            {
+                var process = Process.GetProcessById(ProcessId);
+                if (string.IsNullOrWhiteSpace(ApplicationName))
+                {
+                    ApplicationName = process.ProcessName;
+                }
+
+                FilePath = process.MainModule.FileName;
+            }
+            catch
+            {
+            }
         }
 
         public int ProcessId { get; private set; }
         public DateTime StartTime { get; private set; }
         public string ApplicationName { get; private set; }
+        public string FilePath { get; private set; }
         public string ServiceShortName { get; private set; }
         public ApplicationType ApplicationType { get; private set; }
         public ApplicationStatus ApplicationStatus { get; private set; }
