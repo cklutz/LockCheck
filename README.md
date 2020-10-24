@@ -36,7 +36,7 @@ doesn't matter for the cause of the example):
             {
                 try
                 {
-                    var file2 = File.Open(""c:\\temp\\foo.txt", FileMode.Open, FileAccess.ReadWrite);
+                    var file2 = File.Open("c:\\temp\\foo.txt", FileMode.Open, FileAccess.ReadWrite);
                 }
                 catch (Exception ex)
                 {
