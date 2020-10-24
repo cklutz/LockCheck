@@ -32,11 +32,11 @@ doesn't matter for the cause of the example):
 
         static void Test()
         {
-            using (var file = File.Open(".\foo.txt", FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            using (var file = File.Open("c:\\temp\\foo.txt", FileMode.OpenOrCreate, FileAccess.ReadWrite))
             {
                 try
                 {
-                    var file2 = File.Open(".\foo.txt", FileMode.Open, FileAccess.ReadWrite);
+                    var file2 = File.Open(""c:\\temp\\foo.txt", FileMode.Open, FileAccess.ReadWrite);
                 }
                 catch (Exception ex)
                 {
