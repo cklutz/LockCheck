@@ -1,53 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 
 namespace LockCheck
 {
-    public class ProcessInfo
+    public partial class ProcessInfo
     {
-        internal ProcessInfo(NativeMethods.RM_PROCESS_INFO processInfo)
-        {
-            ProcessId = (int)processInfo.Process.dwProcessId;
-            // ProcessStartTime is returned as local time, not UTC.
-            StartTime = DateTime.FromFileTime((((long)processInfo.Process.ProcessStartTime.dwHighDateTime) << 32) |
-                                              processInfo.Process.ProcessStartTime.dwLowDateTime);
-            ApplicationName = processInfo.strAppName;
-            ServiceShortName = processInfo.strServiceShortName;
-            ApplicationType = (ApplicationType)processInfo.ApplicationType;
-            ApplicationStatus = (ApplicationStatus)processInfo.AppStatus;
-            Restartable = processInfo.bRestartable;
-            TerminalServicesSessionId = (int)processInfo.TSSessionId;
-
-            try
-            {
-                var process = Process.GetProcessById(ProcessId);
-                if (string.IsNullOrWhiteSpace(ApplicationName))
-                {
-                    ApplicationName = process.ProcessName;
-                }
-
-                FilePath = process.MainModule.FileName;
-                UserName = NativeMethods.GetProcessOwner(process.SafeHandle);
-            }
-            catch
-            {
-            }
-        }
-
         public int ProcessId { get; }
-        public DateTime StartTime { get; }
+        public DateTime StartTime { get; private set; }
         public string ApplicationName { get; private set; }
-
-        public string UserName { get; private set; }
-        public string FilePath { get; private set; }
-        public string ServiceShortName { get; private set; }
-        public ApplicationType ApplicationType { get; private set; }
-        public ApplicationStatus ApplicationStatus { get; private set; }
-        public int TerminalServicesSessionId { get; private set; }
-        public bool Restartable { get; private set; }
+        public string UserName { get; internal set; }
+        public string FilePath { get; internal set; }
+        public int SessionId { get; internal set; }
 
         public override int GetHashCode()
         {
@@ -69,6 +35,34 @@ namespace LockCheck
         public override string ToString()
         {
             return ProcessId + "@" + StartTime.ToString("s");
+        }
+
+
+        public string ToString(string format)
+        {
+            if (format == null)
+            {
+                return ToString();
+            }
+
+            if (format == "F")
+            {
+                return ToString() + "/" + ApplicationName;
+            }
+
+            if (format == "A")
+            {
+                var sb = new StringBuilder();
+                sb.Append(nameof(ProcessId)).Append(": ").Append(ProcessId).AppendLine();
+                sb.Append(nameof(StartTime)).Append(": ").Append(StartTime).AppendLine();
+                sb.Append(nameof(ApplicationName)).Append(": ").Append(ApplicationName).AppendLine();
+                sb.Append(nameof(UserName)).Append(": ").Append(UserName).AppendLine();
+                sb.Append(nameof(FilePath)).Append(": ").Append(FilePath).AppendLine();
+                sb.Append(nameof(SessionId)).Append(": ").Append(SessionId).AppendLine();
+                return sb.ToString();
+            }
+
+            return ToString();
         }
 
         public static void Format(StringBuilder sb, IEnumerable<ProcessInfo> lockers, IEnumerable<string> fileNames, int? max = null)

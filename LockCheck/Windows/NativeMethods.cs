@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
@@ -9,10 +9,41 @@ namespace LockCheck
 {
     internal static class NativeMethods
     {
-        // ReSharper disable InconsistentNaming
+        private const string NtDll = "ntdll.dll";
+
+        [StructLayout(LayoutKind.Sequential, Pack = 0)]
+        internal struct IO_STATUS_BLOCK
+        {
+            public uint Status;
+            public IntPtr Information;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct FILE_PROCESS_IDS_USING_FILE_INFORMATION
+        {
+            public uint NumberOfProcessIdsInList;
+            public IntPtr ProcessIdList;
+        }
+
+        internal enum FILE_INFORMATION_CLASS { FileProcessIdsUsingFileInformation = 47 }
+
+        [DllImport(NtDll)]
+        internal static extern uint NtQueryInformationFile(SafeFileHandle fileHandle, ref IO_STATUS_BLOCK IoStatusBlock,
+            IntPtr pInfoBlock, uint length, FILE_INFORMATION_CLASS fileInformation);
+
+        [DllImport(NtDll)]
+        internal static extern int RtlNtStatusToDosError(uint status);
+
+        internal const int ERROR_MR_MID_NOT_FOUND = 317;
+
+        internal const uint STATUS_SUCCESS = 0;
+        internal const uint STATUS_INFO_LENGTH_MISMATCH = 0xC0000004;
+
+        // ----------------------------------------------------------------------------------------------
 
         private const string RestartManagerDll = "rstrtmgr.dll";
         private const string AdvApi32Dll = "advapi32.dll";
+        private const string KernelDll = "kernel32.dll";
 
         [DllImport(RestartManagerDll, CharSet = CharSet.Unicode)]
         internal static extern int RmRegisterResources(uint pSessionHandle,
@@ -24,7 +55,7 @@ namespace LockCheck
             string[] rgsServiceNames);
 
         [DllImport(RestartManagerDll, CharSet = CharSet.Unicode)]
-        internal static extern int RmStartSession(out uint pSessionHandle, 
+        internal static extern int RmStartSession(out uint pSessionHandle,
             int dwSessionFlags, StringBuilder strSessionKey);
 
         [DllImport(RestartManagerDll)]
@@ -127,6 +158,67 @@ namespace LockCheck
         [DllImport(AdvApi32Dll, CharSet = CharSet.Auto, SetLastError = true)]
         internal static extern bool GetTokenInformation(SafeAccessTokenHandle hToken, TOKEN_INFORMATION_CLASS tokenInfoClass, IntPtr tokenInformation, int tokeInfoLength, ref int reqLength);
 
+        internal const int PROCESS_TERMINATE = 0x0001;
+        internal const int PROCESS_CREATE_THREAD = 0x0002;
+        internal const int PROCESS_DUP_HANDLE = 0x0040;
+        internal const int PROCESS_CREATE_PROCESS = 0x0080;
+        internal const int PROCESS_SET_QUOTA = 0x0100;
+        internal const int PROCESS_SET_INFORMATION = 0x0200;
+        internal const int PROCESS_SUSPEND_RESUME = 0x0800;
+        internal const int PROCESS_QUERY_INFORMATION = 0x400;
+        internal const int PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+        internal const int PROCESS_VM_OPERATION = 0x08;
+        internal const int PROCESS_VM_READ = 0x10;
+        internal const int PROCESS_VM_WRITE = 0x20;
+
+        [DllImport(KernelDll, SetLastError = true)]
+        private static extern SafeProcessHandle OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+        internal static SafeProcessHandle OpenProcessLimited(int pid)
+        {
+            return OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        }
+
+        [DllImport(KernelDll, SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool QueryFullProcessImageName(SafeProcessHandle hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
+
+        internal static string GetProcessImagePath(SafeProcessHandle hProcess)
+        {
+            var sb = new StringBuilder(4096);
+            int size = sb.Capacity;
+            if (QueryFullProcessImageName(hProcess, 0, sb, ref size))
+            {
+                return sb.ToString();
+            }
+            return null;
+        }
+
+        [DllImport(KernelDll, CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool GetProcessTimes(SafeProcessHandle handle, out long creation, out long exit, out long kernel, out long user);
+
+        internal static DateTime GetProcessStartTime(SafeProcessHandle handle)
+        {
+            if (GetProcessTimes(handle, out long creation, out _, out _, out _))
+            {
+                return DateTime.FromFileTime(creation);
+            }
+
+            return DateTime.MinValue;
+        }
+
+        [DllImport(KernelDll, SetLastError = true)]
+        private static extern bool ProcessIdToSessionId(int dwProcessId, out int sessionId);
+
+        internal static int GetProcessSessionId(int dwProcessId)
+        {
+            if (ProcessIdToSessionId(dwProcessId, out int sessionId))
+            {
+                return sessionId;
+            }
+
+            return -1;
+        }
+
         internal static string GetProcessOwner(SafeProcessHandle handle)
         {
             if (OpenProcessToken(handle, TOKEN_QUERY, out var token))
@@ -186,6 +278,26 @@ namespace LockCheck
             TokenUser = 1,
         }
 
-        // ReSharper restore InconsistentNaming
+
+        [DllImport(KernelDll, SetLastError = true, CharSet = CharSet.Auto, BestFitMapping = false)]
+        private static extern SafeFileHandle CreateFile(
+            string lpFileName,
+            int dwDesiredAccess,
+            FileShare dwShareMode,
+            IntPtr lpSecurityAttributes,
+            FileMode dwCreationDisposition,
+            int dwFlagsAndAttributes,
+            IntPtr hTemplateFile);
+
+        internal static SafeFileHandle GetFileHandle(string name)
+        {
+            return CreateFile(name,
+                0, // "FileAccess.Neither" Read nor Write
+                FileShare.Read|FileShare.Write|FileShare.Delete,
+                IntPtr.Zero,
+                FileMode.Open,
+                (int)FileAttributes.Normal,
+                IntPtr.Zero);
+        }
     }
 }

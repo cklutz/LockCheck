@@ -35,14 +35,8 @@ namespace LockCheck
                     Console.WriteLine("Process Start Time: {0}", p.StartTime.ToString("F"));
                     Console.WriteLine("Process File Path : {0}", p.FilePath);
                     Console.WriteLine("Process User Name : {0}", p.UserName);
-                    Console.WriteLine("Application Type  : {0}", p.ApplicationType);
-                    Console.WriteLine("Application Status: {0}", p.ApplicationStatus);
                     Console.WriteLine("Application Name  : {0}", p.ApplicationName);
-                    if (p.ApplicationType == ApplicationType.Service)
-                    {
-                        Console.WriteLine("Service Name      : {0}", p.ServiceShortName);
-                    }
-                    Console.WriteLine("TS Session ID     : {0}", p.TerminalServicesSessionId);
+                    Console.WriteLine("TS Session ID     : {0}", p.SessionId);
                     first = false;
                 }
             }

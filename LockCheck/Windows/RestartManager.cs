@@ -7,7 +7,7 @@ using System.Text;
 
 namespace LockCheck
 {
-    public static class RestartManager
+    internal static class RestartManager
     {
         public static IEnumerable<ProcessInfo> GetLockingProcessInfos(params string[] paths)
         {
