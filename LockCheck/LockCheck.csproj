@@ -8,11 +8,15 @@
   <PropertyGroup>
     <Authors>Christian Klutz</Authors>
     <Company />
+    <Copyright>Copyright © Christian Klutz 2020</Copyright>
+    <Description>Provides APIs to find processes that are locking files</Description>
     <RepositoryUrl>https://github.com/cklutz/LockCheck</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageTags>file locks</PackageTags>
     <PackageProjectUrl>https://github.com/cklutz/LockCheck</PackageProjectUrl>
     <!-- All options: https://github.com/dotnet/designs/blob/master/accepted/diagnostics/debugging-with-symbols-and-sources.md -->
     <DebugType>Embedded</DebugType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <PropertyGroup>
