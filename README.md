@@ -124,10 +124,11 @@ You can test the functionality as follows:
 * The ouput should be like
 
         Process ID        : 1296
-        Process Start Time: Saturday, 24th October 2015 16:17:58
-        Application Type  : MainWindow
-        Application Status: Running
+        Process File Path : C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE
+        Process Start Time: Saturday, 24th October 2020 16:17:58
+        Process User Name : MYBOX\cklutz
         Application Name  : Microsoft Excel
-        TS Session ID     : 1
+        Executable Name   : EXCEL.EXE
+        Session ID        : 1
 
 
