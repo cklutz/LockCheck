@@ -34,6 +34,7 @@ namespace LockCheck
                     string imagePath = NativeMethods.GetProcessImagePath(handle);
                     FilePath = NativeMethods.GetProcessImagePath(handle);
                     UserName = NativeMethods.GetProcessOwner(handle);
+                    ExecutableName = Path.GetFileName(imagePath);
 
                     if (StartTime == DateTime.MinValue)
                     {

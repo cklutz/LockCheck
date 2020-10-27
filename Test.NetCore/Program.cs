@@ -1,10 +1,11 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Linq;
+using LockCheck;
 
-namespace LockCheck
+namespace Test.NetCore
 {
-    internal class Program
+    class Program
     {
         private static int Main(string[] args)
         {
@@ -13,10 +14,10 @@ namespace LockCheck
                 if (args.Length == 0)
                 {
                     Console.Error.WriteLine("Usage: {0} FILE [FILE ...]",
-                        typeof (Program).Assembly.GetName().Name);
+                        typeof(Program).Assembly.GetName().Name);
                 }
 
-                var infos = RestartManager.GetLockingProcessInfos(args);
+                var infos = LockManager.GetLockingProcessInfos(args, LockManagerFeatures.UseLowLevelApi);
                 if (!infos.Any())
                 {
                     Console.WriteLine("No locking processes found.");
@@ -35,8 +36,9 @@ namespace LockCheck
                     Console.WriteLine("Process Start Time: {0}", p.StartTime.ToString("F"));
                     Console.WriteLine("Process File Path : {0}", p.FilePath);
                     Console.WriteLine("Process User Name : {0}", p.UserName);
+                    Console.WriteLine("Executable  Name  : {0}", p.ExecutableName);
                     Console.WriteLine("Application Name  : {0}", p.ApplicationName);
-                    Console.WriteLine("TS Session ID     : {0}", p.SessionId);
+                    Console.WriteLine("Session ID        : {0}", p.SessionId);
                     first = false;
                 }
             }

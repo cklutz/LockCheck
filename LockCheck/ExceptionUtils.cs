@@ -9,23 +9,6 @@ namespace LockCheck
 {
     public static class ExceptionUtils
     {
-#if SELF_TEST
-        static void Test()
-        {
-            using (var file = File.Open("C:\\temp\\foo.txt", FileMode.OpenOrCreate, FileAccess.ReadWrite))
-            {
-                try
-                {
-                    var file2 = File.Open("C:\\temp\\foo.txt", FileMode.Open, FileAccess.ReadWrite);
-                }
-                catch (Exception ex)
-                {
-                    if (!ex.RethrowWithLockingInformation("C:\\temp\\foo.txt", LockManagerFeatures.UseLowLevelApi))
-                        throw;
-                }
-            }
-        }
-#endif
 #if NET472
         private static readonly Lazy<MethodInfo> s_setErrorCodeMethod = new Lazy<MethodInfo>(
             () => typeof(Exception).GetMethod("SetErrorCode",

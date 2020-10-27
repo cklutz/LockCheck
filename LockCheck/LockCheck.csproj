@@ -2,10 +2,27 @@
 
   <PropertyGroup>
     <TargetFrameworks>net472;netcoreapp3.1</TargetFrameworks>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Christian Klutz</Authors>
+    <Company />
+    <RepositoryUrl>https://github.com/cklutz/LockCheck</RepositoryUrl>
+    <PackageTags>file locks</PackageTags>
+    <PackageProjectUrl>https://github.com/cklutz/LockCheck</PackageProjectUrl>
+    <!-- All options: https://github.com/dotnet/designs/blob/master/accepted/diagnostics/debugging-with-symbols-and-sources.md -->
+    <DebugType>Embedded</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CA1031;CA1303;CA1801;CA1716;NU5105</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Security.Principal.Windows" Version="4.7.0" />
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.0.50" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

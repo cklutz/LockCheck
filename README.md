@@ -1,25 +1,43 @@
 # LockCheck
-Uses Windows Restart Manager APIs to find processes locking one or multiple files.
+Uses platform APIs to find processes locking one or multiple files.
 
-The code is CodeAnalysis clean (using Microsoft recommended rules) and has been tested on Windows 7 and Windows 10 (both x64).
-It is actually meant to be included in a library or such, but for quick tests a "Main" method is provided.
+### Platforms
 
-Example:
+## Windows
 
-* Open/create a file "C:\temp\foo.xlsx" in Microsoft Excel - you can use any other application that actually locks a file, of course.
-* Run the following command: 
+On the Windows platform there are two possible engines to provide the lock information:
+* Windows RestartManager API (default)
+* NTDLL functions (using `LockManagerFeatures.UseLowLevelApi`)
 
-       LockCheck.exe c:\temp\foo.xlsx
-  
-* The ouput should be like
+The RestartManager API has the advantage of being a documented interface, but
+the disadvantage that it might introduce a rather big overhead. For example,
+The backing [`RmRegisterResources`](https://docs.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmregisterresources) Win32-API is rather expensive.
 
-        Process ID        : 1296
-        Process Start Time: Saturday, 24th October 2015 16:17:58
-        Application Type  : MainWindow
-        Application Status: Running
-        Application Name  : Microsoft Excel
-        TS Session ID     : 1
+Since the "who locks the file" information is potentially highly volatile, and the
+locking processing might already be gone when you start looking for it using this
+library after you got an exception, this might be too much. YMMV.
 
+Also note, that the RestartManager can only have a maximum of 64 restart manager
+sessions per user session - this might not be a real world issue, as the API is
+usually only used by installers and setup applications, but again, YMMV.
+
+## Linux
+
+A Linux implementation is not yet available and all APIs simply return "no lockers
+found", unless the `LockManagerFeatures.ThrowIfNotSupported` flag is passed.
+
+### Usage
+
+## Getting lock information on demand
+
+To get the lockers of a file, if any, use the `LockManager.GetLockingProcessInfos()` function.
+
+```
+foreach (var processInfo in LockManager.GetLockingProcessInfods("c:\\temp\\foo.xlsx"))
+{
+    // Do something with the information.
+}
+```
 
 ## Enriching Exceptions with Lock Information ##
 
@@ -30,21 +48,23 @@ Here is a phony example. The inner Open call causes an IOException, because the 
 Open call already opened the file exclusively (albeit in the same process, but that
 doesn't matter for the cause of the example):
 
-        static void Test()
+```
+static void Test()
+{
+    using (var file = File.Open("c:\\temp\\foo.txt", FileMode.OpenOrCreate, FileAccess.ReadWrite))
+    {
+        try
         {
-            using (var file = File.Open("c:\\temp\\foo.txt", FileMode.OpenOrCreate, FileAccess.ReadWrite))
-            {
-                try
-                {
-                    var file2 = File.Open("c:\\temp\\foo.txt", FileMode.Open, FileAccess.ReadWrite);
-                }
-                catch (Exception ex)
-                {
-                    if (!ex.RethrowWithLockingInformation("C:\\temp\\foo.txt"))
-                        throw;
-                }
-            }
+            var file2 = File.Open("c:\\temp\\foo.txt", FileMode.Open, FileAccess.ReadWrite);
         }
+        catch (Exception ex)
+        {
+            if (!ex.RethrowWithLockingInformation("C:\\temp\\foo.txt"))
+                throw;
+        }
+    }
+}
+```
 
 If the RethrowWithLockingInformation() method could deduce any lockers, it will create an IOException
 that has the original exception as inner exception, but additionally includes lock information in the
@@ -78,7 +98,7 @@ Finally, here is the exception output without the RethrowWithLockingInformation(
 And this is it, with that information included:
 
     System.IO.IOException: The process cannot access the file 'C:\temp\foo.txt' because it is being used by another process.
-    File C:\temp\foo.txt locked by: [MyApp 1.0.0.0, pid=18860, started 2017-07-16 12:28:57.714]
+    File C:\temp\foo.txt locked by: [MyApp 1.0.0.0, pid=18860, user=cklutz started=2017-07-16 12:28:57.714]
        ---> System.IO.IOException: The process cannot access the file 'C:\temp\foo.txt' because it is being used by another process.
         at System.IO.__Error.WinIOError(Int32 errorCode, String maybeFullPath)
         at System.IO.FileStream.Init(String path, FileMode mode, FileAccess access, Int32 rights, ...
@@ -88,3 +108,26 @@ And this is it, with that information included:
        --- End of inner exception stack trace ---
         ExceptionUtils.cs(80,0): at LockCheck.ExceptionUtils.RethrowWithLockingInformation(Exception ex, String[] fileNames)
         ExceptionUtils.cs(24,0): at LockCheck.ExceptionUtils.Test()
+
+
+### Examples
+
+Two example identical example applications are included: one for .NET Framework 4.7.2+ and one for .NET Core 3.1+.
+
+You can test the functionality as follows:
+
+* Open/create a file "C:\temp\foo.xlsx" in Microsoft Excel - you can use any other application that actually locks a file, of course.
+* Run the following command: 
+
+       Test.NetFx.exe c:\temp\foo.xlsx
+  
+* The ouput should be like
+
+        Process ID        : 1296
+        Process Start Time: Saturday, 24th October 2015 16:17:58
+        Application Type  : MainWindow
+        Application Status: Running
+        Application Name  : Microsoft Excel
+        TS Session ID     : 1
+
+

@@ -10,6 +10,7 @@ namespace LockCheck
     {
         public int ProcessId { get; }
         public DateTime StartTime { get; private set; }
+        public string ExecutableName { get; private set; }
         public string ApplicationName { get; private set; }
         public string UserName { get; internal set; }
         public string FilePath { get; internal set; }
@@ -37,7 +38,6 @@ namespace LockCheck
             return ProcessId + "@" + StartTime.ToString("s");
         }
 
-
         public string ToString(string format)
         {
             if (format == null)
@@ -55,6 +55,7 @@ namespace LockCheck
                 var sb = new StringBuilder();
                 sb.Append(nameof(ProcessId)).Append(": ").Append(ProcessId).AppendLine();
                 sb.Append(nameof(StartTime)).Append(": ").Append(StartTime).AppendLine();
+                sb.Append(nameof(ExecutableName)).Append(": ").Append(ExecutableName).AppendLine();
                 sb.Append(nameof(ApplicationName)).Append(": ").Append(ApplicationName).AppendLine();
                 sb.Append(nameof(UserName)).Append(": ").Append(UserName).AppendLine();
                 sb.Append(nameof(FilePath)).Append(": ").Append(FilePath).AppendLine();
@@ -74,7 +75,7 @@ namespace LockCheck
             sb.AppendFormat("File {0} locked by: ", string.Join(", ", fileNames));
             foreach (var locker in lockers.Take(max ?? Int32.MaxValue))
             {
-                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, user={locker.UserName}, started {locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
+                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, user={locker.UserName}, started={locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
             }
 
             if (count > max)
