@@ -22,6 +22,10 @@ namespace LockCheck
             {
                 return Windows.Extensions.IsFileLocked(exception);
             }
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                return Linux.Extensions.IsFileLocked(exception);
+            }
 
             return false;
         }

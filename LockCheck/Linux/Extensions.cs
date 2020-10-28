@@ -1,0 +1,23 @@
+using System;
+using System.IO;
+
+namespace LockCheck.Linux
+{
+    public static class Extensions
+    {
+        public static bool IsFileLocked(IOException exception)
+        {
+            if (exception == null)
+                throw new ArgumentNullException(nameof(exception));
+
+            int errorCode = exception.HResult;
+
+            if (errorCode == NativeMethods.EWOULDBLOCK)
+            {
+                return true;
+            }
+
+            return false;
+        }
+    }
+}

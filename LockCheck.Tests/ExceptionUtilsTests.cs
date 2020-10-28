@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -8,6 +9,29 @@ namespace LockCheck.Tests
     [TestClass]
     public class ExceptionUtilsTests
     {
+        [TestMethod]
+        public void CorePlatformThrowsIOExceptionOnLock()
+        {
+            IOException lockException = null;
+            TestHelper.CreateLockSituation((ex, fileName) => lockException = ex as IOException);
+            Assert.IsNotNull(lockException);
+        }
+
+        [TestMethod]
+        public void IsFileLockedRecognizesLock()
+        {
+            bool found = false;
+            TestHelper.CreateLockSituation((ex, fileName) =>
+            {
+                if (ex is IOException ioex)
+                {
+                    found = ioex.IsFileLocked();
+                }
+            });
+
+            Assert.IsTrue(found);
+        }
+
         [DataTestMethod]
         [DataRow(LockManagerFeatures.None)]
         [DataRow(LockManagerFeatures.UseLowLevelApi)]
