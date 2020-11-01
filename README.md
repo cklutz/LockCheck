@@ -1,7 +1,7 @@
 # LockCheck
 Uses platform APIs to find processes locking one or multiple files.
 
-![Nuget](https://img.shields.io/nuget/v/LockCheck)
+[![Nuget](https://img.shields.io/nuget/v/LockCheck)](https://www.nuget.org/packages/LockCheck/)
 
 ### Platforms
 
