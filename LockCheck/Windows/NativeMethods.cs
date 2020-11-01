@@ -5,7 +5,7 @@ using System.Security.Principal;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
-namespace LockCheck
+namespace LockCheck.Windows
 {
     internal static class NativeMethods
     {

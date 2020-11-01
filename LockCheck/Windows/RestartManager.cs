@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
-namespace LockCheck
+namespace LockCheck.Windows
 {
     internal static class RestartManager
     {

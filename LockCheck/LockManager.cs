@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using LockCheck.Linux;
+using LockCheck.Windows;
 
 namespace LockCheck
 {
@@ -20,14 +22,7 @@ namespace LockCheck
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                // TODO: Implement
-
-                if ((features & LockManagerFeatures.ThrowIfNotSupported) != 0)
-                {
-                    throw new NotSupportedException("Current OS platform is not supported");
-                }
-
-                return Enumerable.Empty<ProcessInfo>();
+                return ProcFileSystem.GetLockingProcessInfos(paths);
             }
             else
             {

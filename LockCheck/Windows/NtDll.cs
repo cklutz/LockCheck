@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-namespace LockCheck
+namespace LockCheck.Windows
 {
     internal static class NtDll
     {

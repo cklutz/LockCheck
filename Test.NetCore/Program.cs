@@ -11,13 +11,16 @@ namespace Test.NetCore
         {
             try
             {
-                if (args.Length == 0)
-                {
-                    Console.Error.WriteLine("Usage: {0} FILE [FILE ...]",
-                        typeof(Program).Assembly.GetName().Name);
-                }
+                //if (args.Length == 0)
+                //{
+                //    Console.Error.WriteLine("Usage: {0} FILE [FILE ...]",
+                //        typeof(Program).Assembly.GetName().Name);
+                //}
+                // string[] paths = args;
 
-                var infos = LockManager.GetLockingProcessInfos(args, LockManagerFeatures.UseLowLevelApi);
+                string[] paths = new string[] { "foo.cs" };
+
+                var infos = LockManager.GetLockingProcessInfos(paths, LockManagerFeatures.UseLowLevelApi);
                 if (!infos.Any())
                 {
                     Console.WriteLine("No locking processes found.");
