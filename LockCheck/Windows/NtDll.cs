@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-namespace LockCheck
+namespace LockCheck.Windows
 {
     internal static class NtDll
     {
@@ -75,7 +75,7 @@ namespace LockCheck
                     for (int i = 0; i < numEntries; i++)
                     {
                         int processId = Marshal.ReadIntPtr(readBuffer).ToInt32(); // A single ProcessIdList[] element
-                        result.Add(new ProcessInfo(processId));
+                        result.Add(ProcessInfoWindows.Create(processId));
                         readBuffer += IntPtr.Size;
                     }
                 }

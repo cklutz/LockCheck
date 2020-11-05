@@ -5,7 +5,7 @@ using System.Security.Principal;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
-namespace LockCheck
+namespace LockCheck.Windows
 {
     internal static class NativeMethods
     {
@@ -149,6 +149,8 @@ namespace LockCheck
             public uint TSSessionId;
             [MarshalAs(UnmanagedType.Bool)]
             public bool bRestartable;
+
+            public DateTime GetStartTime() => DateTime.FromFileTime((((long)Process.ProcessStartTime.dwHighDateTime) << 32) | Process.ProcessStartTime.dwLowDateTime);
         }
 
         [DllImport(AdvApi32Dll, SetLastError = true)]

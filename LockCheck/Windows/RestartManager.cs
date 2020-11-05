@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
-namespace LockCheck
+namespace LockCheck.Windows
 {
     internal static class RestartManager
     {
@@ -63,7 +63,7 @@ namespace LockCheck
                         var lockInfos = new List<ProcessInfo>((int)pnProcInfo);
                         for (int i = 0; i < pnProcInfo; i++)
                         {
-                            lockInfos.Add(new ProcessInfo(rgAffectedApps[i]));
+                            lockInfos.Add(ProcessInfoWindows.Create(rgAffectedApps[i]));
                         }
                         return lockInfos;
                     }

@@ -22,7 +22,9 @@
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CA1031;CA1303;CA1801;CA1716;NU5105</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
 
   <ItemGroup>
     <PackageReference Include="System.Security.Principal.Windows" Version="4.7.0" />
