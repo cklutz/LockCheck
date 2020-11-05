@@ -1,20 +1,76 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 
 namespace LockCheck
 {
-    public partial class ProcessInfo
+    /// <summary>
+    /// Provides information about a process that is holding a lock on a file.
+    /// </summary>
+    public abstract class ProcessInfo
     {
+        protected ProcessInfo(int processId, DateTime startTime)
+        {
+            ProcessId = processId;
+            StartTime = startTime;
+        }
+
+        /// <summary>
+        /// The process identifier of the process holding a lock on a file.
+        /// </summary>
         public int ProcessId { get; }
-        public DateTime StartTime { get; private set; }
-        public string ExecutableName { get; private set; }
-        public string ApplicationName { get; private set; }
-        public string UserName { get; internal set; }
-        public string FilePath { get; internal set; }
-        public int SessionId { get; internal set; }
+
+        /// <summary>
+        /// The start time (local) of the process holding a lock o a file.
+        /// </summary>
+        public DateTime StartTime { get; }
+
+        /// <summary>
+        /// The executable name of the process holding a lock.
+        /// </summary>
+        public string ExecutableName { get; protected set; }
+
+        /// <summary>
+        /// The descriptive application name, if available. Otherwise
+        /// the same as the executable name or another informative
+        /// string.
+        /// </summary>
+        public string ApplicationName { get; protected set; }
+
+        /// <summary>
+        /// The owner of the process.
+        /// </summary>
+        public string Owner { get; protected set; }
+
+        /// <summary>
+        /// The full path to the process' executable, if available.
+        /// </summary>
+        public string ExecutableFullPath { get; protected set; }
+
+        /// <summary>
+        /// The platform specific session ID of the process.
+        /// </summary>
+        /// <value>
+        /// On Windows, the Terminal Services ID. On Linux
+        /// the process' session ID.
+        /// </value>
+        public int SessionId { get; protected set; }
+
+        /// <summary>
+        /// A platform specific string that specifies the type of lock, if available.
+        /// </summary>
+        public string LockType { get; protected set; }
+
+        /// <summary>
+        /// A platform specific string that specifies the mode of the lock, if available.
+        /// </summary>
+        public string LockMode { get; protected set; }
+
+        /// <summary>
+        /// A platform specific string that specifies the access lock requested, if available.
+        /// </summary>
+        public string LockAccess { get; protected set; }
 
         public override int GetHashCode()
         {
@@ -57,9 +113,12 @@ namespace LockCheck
                 sb.Append(nameof(StartTime)).Append(": ").Append(StartTime).AppendLine();
                 sb.Append(nameof(ExecutableName)).Append(": ").Append(ExecutableName).AppendLine();
                 sb.Append(nameof(ApplicationName)).Append(": ").Append(ApplicationName).AppendLine();
-                sb.Append(nameof(UserName)).Append(": ").Append(UserName).AppendLine();
-                sb.Append(nameof(FilePath)).Append(": ").Append(FilePath).AppendLine();
+                sb.Append(nameof(Owner)).Append(": ").Append(Owner).AppendLine();
+                sb.Append(nameof(ExecutableFullPath)).Append(": ").Append(ExecutableFullPath).AppendLine();
                 sb.Append(nameof(SessionId)).Append(": ").Append(SessionId).AppendLine();
+                sb.Append(nameof(LockType)).Append(": ").Append(LockType).AppendLine();
+                sb.Append(nameof(LockMode)).Append(": ").Append(LockMode).AppendLine();
+                sb.Append(nameof(LockAccess)).Append(": ").Append(LockAccess).AppendLine();
                 return sb.ToString();
             }
 
@@ -75,7 +134,7 @@ namespace LockCheck
             sb.AppendFormat("File {0} locked by: ", string.Join(", ", fileNames));
             foreach (var locker in lockers.Take(max ?? Int32.MaxValue))
             {
-                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, user={locker.UserName}, started={locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
+                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, owner={locker.Owner}, started={locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
             }
 
             if (count > max)

@@ -149,6 +149,8 @@ namespace LockCheck.Windows
             public uint TSSessionId;
             [MarshalAs(UnmanagedType.Bool)]
             public bool bRestartable;
+
+            public DateTime GetStartTime() => DateTime.FromFileTime((((long)Process.ProcessStartTime.dwHighDateTime) << 32) | Process.ProcessStartTime.dwLowDateTime);
         }
 
         [DllImport(AdvApi32Dll, SetLastError = true)]

@@ -1,57 +1,50 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using LockCheck.Linux;
 
-namespace LockCheck
+namespace LockCheck.Linux
 {
-    public partial class ProcessInfo
+    internal class ProcessInfoLinux : ProcessInfo
     {
-        internal ProcessInfo(LockInfo lockInfo)
+        public static ProcessInfoLinux Create(LockInfo li)
         {
-            SessionId = -1;
-            ProcessId = lockInfo.ProcessId;
-            LockType = lockInfo.LockType;
-            LockMode = lockInfo.LockMode;
-            LockAccess = lockInfo.LockAccess;
-
-            FillDetailsLinux();
-        }
-
-        public string LockType { get; set; }
-        public string LockMode { get; set; }
-        public string LockAccess { get; set; }
-
-        private void FillDetailsLinux()
-        {
-            if (ProcessId == -1)
+            if (li.ProcessId == -1)
             {
                 // Can happen for OFD (open file descriptor) locks which are not
                 // bound to a specific process.
-                ApplicationName = LockType;
-                return;
+                return new ProcessInfoLinux(li.ProcessId, DateTime.MinValue)
+                {
+                    LockAccess = li.LockAccess,
+                    LockMode = li.LockMode,
+                    LockType = li.LockType,
+                    ApplicationName = $"({li.LockType};{li.LockAccess};{li.LockMode})"
+                };
             }
+
+            ProcessInfoLinux result = null;
 
             try
             {
-                using (var process = Process.GetProcessById(ProcessId))
+                using (var process = Process.GetProcessById(li.ProcessId))
                 {
-                    StartTime = process.StartTime;
-                    SessionId = process.SessionId;
-                    ApplicationName = process.ProcessName;
+                    result = new ProcessInfoLinux(li.ProcessId, process.StartTime)
+                    {
+                        SessionId  = process.SessionId,
+                        ApplicationName = process.ProcessName
+                    };
 
                     // MainModule may be null, if no permissions, etc.
                     // Note: alternative of "readlink -f /proc/<pid>/exe" will
                     // also yield results in this case.
                     if (process.MainModule != null)
                     {
-                        FilePath = process.MainModule.FileName;
-                        ExecutableName = Path.GetFileName(FilePath);
+                        result.ExecutableFullPath = process.MainModule.FileName;
+                        result.ExecutableName = Path.GetFileName(result.ExecutableFullPath);
                     }
                     else
                     {
-                        FilePath = process.ProcessName;
-                        ExecutableName = process.ProcessName;
+                        result.ExecutableFullPath = process.ProcessName;
+                        result.ExecutableName = process.ProcessName;
                     }
                 }
             }
@@ -60,13 +53,23 @@ namespace LockCheck
                 // Process already gone/does not exist.
             }
 
-            // TryGetUid() fails if process is gone (because directory is gone);
-            // GetUserName() should not fail because it looks up information in
-            // passwd, which is not bound in lifetime to the process of course.
-            if (NativeMethods.TryGetUid($"/proc/{ProcessId}", out uint uid))
+            if (result != null)
             {
-                UserName = NativeMethods.GetUserName(uid);
+                // TryGetUid() fails if process is gone (because directory is gone);
+                // GetUserName() should not fail because it looks up information in
+                // passwd, which is not bound in lifetime to the process of course.
+                if (NativeMethods.TryGetUid($"/proc/{li.ProcessId}", out uint uid))
+                {
+                    result.Owner = NativeMethods.GetUserName(uid);
+                }
             }
+
+            return result;
+        }
+
+        private ProcessInfoLinux(int processId, DateTime startTime)
+            : base(processId, startTime)
+        {
         }
     }
 }

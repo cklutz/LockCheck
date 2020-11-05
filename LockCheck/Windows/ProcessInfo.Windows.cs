@@ -1,58 +1,42 @@
 ﻿using System;
 using System.IO;
-using LockCheck.Windows;
+using Microsoft.Win32.SafeHandles;
 
-namespace LockCheck
+namespace LockCheck.Windows
 {
-    public partial class ProcessInfo
+    internal class ProcessInfoWindows : ProcessInfo
     {
-        internal ProcessInfo(NativeMethods.RM_PROCESS_INFO processInfo)
+        public static ProcessInfoWindows Create(NativeMethods.RM_PROCESS_INFO pi)
+            => Create((int)pi.Process.dwProcessId, pi, (pid, _, data) => new ProcessInfoWindows(pid, data.GetStartTime()));
+
+        public static ProcessInfoWindows Create(int processId)
+            => Create(processId, 0, (pid, handle, _) => new ProcessInfoWindows(pid, NativeMethods.GetProcessStartTime(handle)));
+
+        private static ProcessInfoWindows Create<T>(int processId, T data, Func<int, SafeProcessHandle, T, ProcessInfoWindows> createInstance)
         {
-            ProcessId = (int)processInfo.Process.dwProcessId;
-            // ProcessStartTime is returned as local time, not UTC.
-            StartTime = DateTime.FromFileTime((((long)processInfo.Process.ProcessStartTime.dwHighDateTime) << 32) |
-                                              processInfo.Process.ProcessStartTime.dwLowDateTime);
-            ApplicationName = processInfo.strAppName;
-            SessionId = (int)processInfo.TSSessionId;
-
-            FillDetailsWindows();
-        }
-
-        internal ProcessInfo(int processId)
-        {
-            ProcessId = processId;
-            SessionId = -1;
-
-            FillDetailsWindows();
-        }
-
-        private void FillDetailsWindows()
-        {
-            using (var handle = NativeMethods.OpenProcessLimited(ProcessId))
+            using (var handle = NativeMethods.OpenProcessLimited(processId))
             {
                 if (!handle.IsInvalid)
                 {
+                    var result = createInstance(processId, handle, data);
+
                     string imagePath = NativeMethods.GetProcessImagePath(handle);
-                    FilePath = NativeMethods.GetProcessImagePath(handle);
-                    UserName = NativeMethods.GetProcessOwner(handle);
-                    ExecutableName = Path.GetFileName(imagePath);
+                    result.ExecutableFullPath = NativeMethods.GetProcessImagePath(handle);
+                    result.Owner = NativeMethods.GetProcessOwner(handle);
+                    result.ExecutableName = Path.GetFileName(imagePath);
+                    result.ApplicationName = Path.GetFileName(imagePath);
+                    result.SessionId = NativeMethods.GetProcessSessionId(processId);
 
-                    if (StartTime == DateTime.MinValue)
-                    {
-                        StartTime = NativeMethods.GetProcessStartTime(handle);
-                    }
-
-                    if (string.IsNullOrEmpty(ApplicationName))
-                    {
-                        ApplicationName = Path.GetFileName(imagePath);
-                    }
-
-                    if (SessionId == -1)
-                    {
-                        SessionId = NativeMethods.GetProcessSessionId(ProcessId);
-                    }
+                    return result;
                 }
+
+                return null;
             }
+        }
+
+        private ProcessInfoWindows(int processId, DateTime startTime)
+            : base(processId, startTime)
+        {
         }
     }
 }

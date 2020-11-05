@@ -23,9 +23,9 @@ namespace LockCheck.Tests
                 Assert.AreEqual(process.SessionId, processInfos[0].SessionId);
                 Assert.AreEqual(process.StartTime, processInfos[0].StartTime);
                 Assert.IsNotNull(processInfos[0].ApplicationName);
-                Assert.AreEqual(processInfos[0].FilePath?.ToLowerInvariant(), process.MainModule.FileName.ToLowerInvariant());
+                Assert.AreEqual(processInfos[0].ExecutableFullPath?.ToLowerInvariant(), process.MainModule.FileName.ToLowerInvariant());
                 // Might contain domain, computername, etc. in SAM form
-                StringAssert.Contains(processInfos[0].UserName?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
+                StringAssert.Contains(processInfos[0].Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
                 // Might have an .exe suffix or not.
                 StringAssert.Contains(processInfos[0].ExecutableName?.ToLowerInvariant(), process.ProcessName.ToLowerInvariant());
             });

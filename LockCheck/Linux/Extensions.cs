@@ -10,14 +10,7 @@ namespace LockCheck.Linux
             if (exception == null)
                 throw new ArgumentNullException(nameof(exception));
 
-            int errorCode = exception.HResult;
-
-            if (errorCode == NativeMethods.EWOULDBLOCK)
-            {
-                return true;
-            }
-
-            return false;
+            return exception.HResult == NativeMethods.EWOULDBLOCK;
         }
     }
 }
