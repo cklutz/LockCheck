@@ -11,6 +11,7 @@ namespace LockCheck.Linux
     internal static class ProcFileSystem
     {
         private const string LocksFile = "/proc/locks";
+        private const string StatFileFormat = "/proc/{0}/stat";
         private const string FdDirectoryFormat = "/proc/{0}/fd";
         private const string FdFileFormat = "/proc/{0}/fd/{1}";
 
@@ -44,12 +45,6 @@ namespace LockCheck.Linux
                 }
             }
         }
-
-        private static string GetFileName(int processId, long inodeNumber)
-        {
-            string fdFile = string.Format(FdFileFormat, processId, inodeNumber);
-            return NativeMethods.ReadLink(fdFile);
-        }
     }
 
     internal class LockInfo
@@ -76,6 +71,7 @@ namespace LockCheck.Linux
             //  3: FLOCK ADVISORY  WRITE 1568 00:2f:32388 0 EOF
             //  4: POSIX ADVISORY  WRITE 699 00:16:28457 0 EOF
             //  5: POSIX ADVISORY  WRITE 764 00:16:21448 0 0
+            //  5: -> POSIX ADVISORY  WRITE 766 00:16:21448 0 0
             //  6: POSIX ADVISORY  READ  3548 08:01:7867240 1 1
             //  7: POSIX ADVISORY  READ  3548 08:01:7865567 1826 2335
             //  8: OFDLCK ADVISORY  WRITE -1 08:01:8713209 128 191
@@ -86,27 +82,35 @@ namespace LockCheck.Linux
             // up to field #5 (INODE)
             if (fields.Length < 6)
             {
-                throw new IOException($"Unexpected number of fields {fields.Length} in {fileName}: {line}");
+                throw new IOException($"Unexpected number of fields {fields.Length} in {fileName}");
             }
 
-            LockType = fields[1];
-            LockMode = fields[2];
-            LockAccess = fields[3];
-
-            if (!int.TryParse(fields[4], out int processId))
+            int offset = 0; // Always the "ID" (e.g. "1:")
+            offset++;
+            if (fields[offset] == "->")
             {
-                throw new IOException($"Invalid process ID in {fileName}: {line}");
+                // "Blocked" optional marker
+                offset++;
+            }
+
+            LockType = fields[offset++];
+            LockMode = fields[offset++];
+            LockAccess = fields[offset++];
+
+            if (!int.TryParse(fields[offset++], out int processId))
+            {
+                throw new IOException($"Invalid process ID '{fields[offset]}' in {fileName}");
             }
 
             ProcessId = processId;
 
-            string[] inode = fields[5].Split(s_colon, StringSplitOptions.RemoveEmptyEntries);
+            string[] inode = fields[offset++].Split(s_colon, StringSplitOptions.RemoveEmptyEntries);
             if (inode.Length != 3 ||
                 !int.TryParse(inode[0], NumberStyles.HexNumber, null, out int major) ||
                 !int.TryParse(inode[1], NumberStyles.HexNumber, null, out int minor) ||
                 !long.TryParse(inode[2], NumberStyles.Integer, null, out long number))
             {
-                throw new IOException($"Invalid inode specification in {fileName}: {line}");
+                throw new IOException($"Invalid inode '{fields[offset]}' specification in {fileName}");
             }
 
             InodeInfo = new InodeInfo(major, minor, number);

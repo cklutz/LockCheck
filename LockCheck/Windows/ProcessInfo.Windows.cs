@@ -15,7 +15,7 @@ namespace LockCheck
             ApplicationName = processInfo.strAppName;
             SessionId = (int)processInfo.TSSessionId;
 
-            FillAuxiliaryInfo();
+            FillDetailsWindows();
         }
 
         internal ProcessInfo(int processId)
@@ -23,10 +23,10 @@ namespace LockCheck
             ProcessId = processId;
             SessionId = -1;
 
-            FillAuxiliaryInfo();
+            FillDetailsWindows();
         }
 
-        private void FillAuxiliaryInfo()
+        private void FillDetailsWindows()
         {
             using (var handle = NativeMethods.OpenProcessLimited(ProcessId))
             {
