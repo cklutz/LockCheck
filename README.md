@@ -25,8 +25,17 @@ usually only used by installers and setup applications, but again, YMMV.
 
 ## Linux
 
-A Linux implementation is not yet available and all APIs simply return "no lockers
-found", unless the `LockManagerFeatures.ThrowIfNotSupported` flag is passed.
+On Linux, the `/proc/locks` file is used as basis for finding processes holding a lock
+on a file. Linux supports multiple lock types (see this [article](https://gavv.github.io/articles/file-locks/)
+for an overview). Not all those lock types are directly associated with a single process,
+so the `ProcesInfo.ProcessID` member can be `-1` here. Additionally, on Linux, the
+`ProcessInfo.LockType`, `ProcessInfo.LockMode` and `ProcessInfo.LockAccess` properties
+return the respective values. These properties are `null` on Windows.
+
+Linux support should be considered experimental. Albeit the Unit-Tests and example application works,
+it has not been used in a real world scenario. The Linux version has been developed on WSL2.
+
+If you have any improvements / PRs please let me know.
 
 ### Usage
 
@@ -111,7 +120,6 @@ And this is it, with that information included:
         ExceptionUtils.cs(80,0): at LockCheck.ExceptionUtils.RethrowWithLockingInformation(Exception ex, String[] fileNames)
         ExceptionUtils.cs(24,0): at LockCheck.ExceptionUtils.Test()
 
-
 ### Examples
 
 Two example identical example applications are included: one for .NET Framework 4.7.2+ and one for .NET Core 3.1+.
@@ -131,5 +139,3 @@ You can test the functionality as follows:
         Application Status: Running
         Application Name  : Microsoft Excel
         TS Session ID     : 1
-
-
