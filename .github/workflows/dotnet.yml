@@ -17,9 +17,7 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.301
-    - name: Restore dependencies
-      run: dotnet restore
     - name: Build
-      run: dotnet build --no-restore --framework netcoreapp3.1
+      run: dotnet build --framework netcoreapp3.1
     - name: Test
       run: dotnet test --no-build --verbosity normal --framework netcoreapp3.1
