@@ -1,4 +1,4 @@
-name: .NET
+name: Windows
 
 on:
   push:
