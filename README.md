@@ -2,9 +2,8 @@
 Uses platform APIs to find processes locking one or multiple files.
 
 [![Nuget](https://img.shields.io/nuget/v/LockCheck)](https://www.nuget.org/packages/LockCheck/)
-
-* ![Ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg) 
-* ![Windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)
+![Desktop](https://github.com/cklutz/LockCheck/workflows/Desktop/badge.svg)
+![Ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg) 
 
 ### Platforms
 
