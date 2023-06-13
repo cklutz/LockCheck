@@ -1,6 +1,8 @@
+using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace LockCheck.Windows
@@ -32,7 +34,7 @@ namespace LockCheck.Windows
 
             try
             {
-                using (var handle = NativeMethods.GetFileHandle(path))
+                using (var handle = GetFileOrDirectoryHandle(path))
                 {
                     if (handle.IsInvalid)
                     {
@@ -98,6 +100,13 @@ namespace LockCheck.Windows
             }
 
             return new NtException(res, status, $"{message} ({apiName}() status {status} (0x{status:8X})");
+        }
+
+        private static SafeFileHandle GetFileOrDirectoryHandle(string path)
+        {
+            return Directory.Exists(path)
+                ? NativeMethods.GetDirectoryHandle(path)
+                : NativeMethods.GetFileHandle(path);
         }
     }
 

@@ -301,5 +301,20 @@ namespace LockCheck.Windows
                 (int)FileAttributes.Normal,
                 IntPtr.Zero);
         }
+
+        // From `CreateFile` (`CreateFileA`) documentation:
+        // https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea
+        const int FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
+
+        internal static SafeFileHandle GetDirectoryHandle(string name)
+        {
+            return CreateFile(name,
+                0, // "FileAccess.Neither" Read nor Write
+                FileShare.Read | FileShare.Write | FileShare.Delete,
+                IntPtr.Zero,
+                FileMode.Open,
+                (int)FileAttributes.Normal | FILE_FLAG_BACKUP_SEMANTICS,
+                IntPtr.Zero);
+        }
     }
 }
