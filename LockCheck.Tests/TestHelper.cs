@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -8,7 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LockCheck.Tests
 {
     internal static class TestHelper
-    { 
+    {
         public static void CreateLockSituation(Action<Exception, string> action)
         {
             string tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
@@ -37,16 +38,16 @@ namespace LockCheck.Tests
             }
         }
 
-        #nullable enable
+#nullable enable
 
         public static void CreateFolderWithOpenedProcess(Action<string, Process?> action)
         {
-            var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
+            var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".testdir");
             Process? process = null;
             try
             {
                 Directory.CreateDirectory(tempFolder);
-                process = LaunchCMDInDirectory(tempFolder);
+                process = LaunchPowershellInDirectory(tempFolder);
                 action(tempFolder, process);
             }
             finally
@@ -63,14 +64,13 @@ namespace LockCheck.Tests
 
         public static void CreateFolderWithOpenedProcessInSubDir(Action<string, Process?> action)
         {
-            var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
+            var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".testdir");
             Process? process = null;
             try
             {
-                Directory.CreateDirectory(tempFolder);
                 var innerFolder = Path.Join(tempFolder, "inner");
                 Directory.CreateDirectory(innerFolder);
-                process = LaunchCMDInDirectory(innerFolder);
+                process = LaunchPowershellInDirectory(innerFolder);
                 action(tempFolder, process);
             }
             finally
@@ -85,32 +85,41 @@ namespace LockCheck.Tests
             }
         }
 
-        static Process? LaunchCMDInDirectory(string workingDirectory)
+        static Process? LaunchPowershellInDirectory(string workingDirectory)
         {
             ProcessStartInfo startInfo = new ProcessStartInfo();
-            var process = new Process();
-            process.StartInfo = new ProcessStartInfo {
-                FileName = "cmd",
-                WorkingDirectory = workingDirectory,
-                Arguments = "/c \"echo loaded\" & pause",
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
+            var process = new Process()
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell",
+                    WorkingDirectory = workingDirectory,
+                    Arguments = "-NoProfile -Command \"echo 'process has been loaded'; sleep 10\"",
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                }
             };
-            string output = "";
+
+            var output = new List<string>();
             process.OutputDataReceived += (sender, e) =>
             {
-                output += e.Data;
+                if (e.Data != null) output.Add(e.Data);
             };
             process.Start();
             process.BeginOutputReadLine();
 
-            while (!output.StartsWith("loaded"))
+            var startTime = DateTime.Now;
+            while (!(output.LastOrDefault() ?? "").EndsWith("process has been loaded") && !process.HasExited)
             {
                 Thread.Sleep(50);
+                if (DateTime.Now.Subtract(startTime).TotalSeconds > 2)
+                {
+                    throw new Exception("Gave up after waiting 2 seconds");
+                }
             }
             return process;
         }
 
-        #nullable disable
+#nullable disable
     }
 }

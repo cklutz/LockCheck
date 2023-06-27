@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -14,10 +13,6 @@ namespace LockCheck.Windows
         {
             if (paths == null)
                 throw new ArgumentNullException("paths");
-
-            // RestartManager API only supports files, not directories
-            // It returns "RMGetList() error 5: Access is denied" if called with a directory, even with UAC
-            paths = paths.Where(path => !Directory.Exists(path)).ToArray();
 
             const int maxRetries = 6;
 
