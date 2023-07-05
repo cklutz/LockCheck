@@ -30,5 +30,16 @@ namespace LockCheck.Tests
                 StringAssert.Contains(processInfos[0].ExecutableName?.ToLowerInvariant(), process.ProcessName.ToLowerInvariant());
             });
         }
+
+        [DataTestMethod]
+        public void LockInformationAvailableForDirectoryWithNtDll()
+        {
+            TestHelper.CreateFolderWithOpenedProcess((tempFolder, process) =>
+            {
+                var processInfosUsingNtDll = LockManager.GetLockingProcessInfos(new[] { tempFolder }, LockManagerFeatures.UseLowLevelApi).ToList();
+                Assert.AreEqual(1, processInfosUsingNtDll.Count);
+                Assert.AreEqual(process.Id, processInfosUsingNtDll[0].ProcessId);
+            });
+        }
     }
 }
