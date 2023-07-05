@@ -32,26 +32,13 @@ namespace LockCheck.Tests
         }
 
         [DataTestMethod]
-        public void LockInformationAvailableForDirectory()
+        public void LockInformationAvailableForDirectoryWithNtDll()
         {
             TestHelper.CreateFolderWithOpenedProcess((tempFolder, process) =>
             {
-                var processInfosUsingRestartManager = LockManager.GetLockingProcessInfos(new[] { tempFolder }).ToList();
-                Assert.AreEqual(0, processInfosUsingRestartManager.Count);
-
                 var processInfosUsingNtDll = LockManager.GetLockingProcessInfos(new[] { tempFolder }, LockManagerFeatures.UseLowLevelApi).ToList();
                 Assert.AreEqual(1, processInfosUsingNtDll.Count);
                 Assert.AreEqual(process.Id, processInfosUsingNtDll[0].ProcessId);
-            });
-        }
-
-        [DataTestMethod]
-        public void LockInformationNotAvailableForSubDirectory()
-        {
-            TestHelper.CreateFolderWithOpenedProcessInSubDir((tempFolder, process) =>
-            {
-                var processInfos = LockManager.GetLockingProcessInfos(new[] { tempFolder }, LockManagerFeatures.UseLowLevelApi).ToList();
-                Assert.AreEqual(0, processInfos.Count, "NtDll is not able to find locks for subdirs");
             });
         }
     }

@@ -38,22 +38,19 @@ namespace LockCheck.Tests
             }
         }
 
-#nullable enable
-
-        public static void CreateFolderWithOpenedProcess(Action<string, Process?> action)
+        public static void CreateFolderWithOpenedProcess(Action<string, Process> action)
         {
             var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".testdir");
-            Process? process = null;
+            Directory.CreateDirectory(tempFolder);
+            var processInfo = LaunchPowershellInDirectory(tempFolder)!;
+
             try
             {
-                Directory.CreateDirectory(tempFolder);
-                process = LaunchPowershellInDirectory(tempFolder);
-                action(tempFolder, process);
+                action(tempFolder, processInfo.process);
             }
             finally
             {
-                process?.Kill();
-                process?.WaitForExit();
+                processInfo.Dispose();
 
                 if (Directory.Exists(tempFolder))
                 {
@@ -62,30 +59,7 @@ namespace LockCheck.Tests
             }
         }
 
-        public static void CreateFolderWithOpenedProcessInSubDir(Action<string, Process?> action)
-        {
-            var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".testdir");
-            Process? process = null;
-            try
-            {
-                var innerFolder = Path.Join(tempFolder, "inner");
-                Directory.CreateDirectory(innerFolder);
-                process = LaunchPowershellInDirectory(innerFolder);
-                action(tempFolder, process);
-            }
-            finally
-            {
-                process?.Kill();
-                process?.WaitForExit();
-
-                if (Directory.Exists(tempFolder))
-                {
-                    Directory.Delete(tempFolder, true);
-                }
-            }
-        }
-
-        static Process? LaunchPowershellInDirectory(string workingDirectory)
+        static ProcessInfo LaunchPowershellInDirectory(string workingDirectory)
         {
             ProcessStartInfo startInfo = new ProcessStartInfo();
             var process = new Process()
@@ -117,9 +91,19 @@ namespace LockCheck.Tests
                     throw new Exception("Gave up after waiting 2 seconds");
                 }
             }
-            return process;
+
+            return new ProcessInfo() { process = process };
         }
 
-#nullable disable
+        class ProcessInfo: IDisposable
+        {
+            public Process process { get; set; }
+
+            public void Dispose()
+            {
+                process.Kill();
+                process.WaitForExit();
+            }
+        }
     }
 }
