@@ -10,10 +10,10 @@ namespace LockCheck
     /// </summary>
     public abstract class ProcessInfo
     {
-        protected ProcessInfo(int processId, DateTime startTime)
+        protected ProcessInfo(int processId, DateTime? startTime)
         {
             ProcessId = processId;
-            StartTime = startTime;
+            StartTime = startTime ?? DateTime.MinValue;
         }
 
         /// <summary>
@@ -22,7 +22,7 @@ namespace LockCheck
         public int ProcessId { get; }
 
         /// <summary>
-        /// The start time (local) of the process holding a lock o a file.
+        /// The start time (local) of the process holding a lock on a file.
         /// </summary>
         public DateTime StartTime { get; }
 

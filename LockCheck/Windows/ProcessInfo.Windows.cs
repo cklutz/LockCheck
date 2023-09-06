@@ -30,11 +30,11 @@ namespace LockCheck.Windows
                     return result;
                 }
 
-                return null;
+                return new ProcessInfoWindows(processId, DateTime.MinValue);
             }
         }
 
-        private ProcessInfoWindows(int processId, DateTime startTime)
+        private ProcessInfoWindows(int processId, DateTime? startTime)
             : base(processId, startTime)
         {
         }
