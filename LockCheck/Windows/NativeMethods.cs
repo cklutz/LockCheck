@@ -228,7 +228,13 @@ namespace LockCheck.Windows
                 if (ProcessTokenToSid(token, out var sid))
                 {
                     var x = new SecurityIdentifier(sid);
-                    return x.Translate(typeof(NTAccount)).Value;
+                    try {
+                        return x.Translate(typeof(NTAccount)).Value;
+                    }
+                    catch (IdentityNotMappedException)
+                    {
+                        return null;
+                    }
                 }
             }
             return null;
