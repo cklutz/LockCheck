@@ -1,0 +1,51 @@
+name: release
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  release:
+    name: ${{ matrix.target }}
+    permissions:
+      contents: write
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Directory structure
+        run: |
+          ls
+
+      - name: Dotnet Installation Info
+        run: dotnet --info
+
+      - name: Build
+        run: dotnet build -c release
+
+      - name: Create release
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+
+      - name: Publish NuGet
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          $nupkgFile = Get-ChildItem -Path "LockCheck/bin/Release/*.nupkg" | Select-Object -First 1
+          dotnet nuget push $nupkgFile -k ${{ secrets.NUGET_AUTH_TOKEN }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+        shell: pwsh

@@ -1,20 +1,15 @@
-# LockCheck
+# LockChecker
+[![Nuget](https://img.shields.io/nuget/v/LockChecker)](https://www.nuget.org/packages/LockChecker/)
+
 Uses platform APIs to find processes locking one or multiple files.
 
-[![Nuget](https://img.shields.io/nuget/v/LockCheck)](https://www.nuget.org/packages/LockCheck/)
+It's a fork of [LockCheck](https://github.com/cklutz/LockCheck), which is being used by [ForceOps](https://github.com/domsleee/ForceOps).
 
-## Builds
+The motivation for publishing an updated verison to NuGet is so that [ForceOps.Lib](https://www.nuget.org/packages/ForceOps.Lib) can be more easily consumed.
 
-[![Desktop](https://github.com/cklutz/LockCheck/workflows/Desktop/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3ADesktop)
+## Platforms
 
-[![Windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
-
-[![Ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
-
-
-### Platforms
-
-## Windows
+### Windows
 
 On the Windows platform there are two possible engines to provide the lock information:
 * Windows RestartManager API (default)
@@ -32,7 +27,7 @@ Also note, that the RestartManager can only have a maximum of 64 restart manager
 sessions per user session - this might not be a real world issue, as the API is
 usually only used by installers and setup applications, but again, YMMV.
 
-## Linux
+### Linux
 
 On Linux, the `/proc/locks` file is used as basis for finding processes holding a lock
 on a file. Linux supports multiple lock types (see this [article](https://gavv.github.io/articles/file-locks/)
@@ -46,9 +41,9 @@ it has not been used in a real world scenario. The Linux version has been develo
 
 If you have any improvements / PRs please let me know.
 
-### Usage
+## Usage
 
-## Getting lock information on demand
+### Getting lock information on demand
 
 To get the lockers of a file, if any, use the `LockManager.GetLockingProcessInfos()` function.
 
@@ -59,7 +54,7 @@ foreach (var processInfo in LockManager.GetLockingProcessInfods("c:\\temp\\foo.x
 }
 ```
 
-## Enriching Exceptions with Lock Information ##
+### Enriching Exceptions with Lock Information
 
 The method ExceptionUtils.RethrowWithLockingInformation() can be used to enrich exceptions
 with lock information, if available.
@@ -68,7 +63,7 @@ Here is a phony example. The inner Open call causes an IOException, because the 
 Open call already opened the file exclusively (albeit in the same process, but that
 doesn't matter for the cause of the example):
 
-```
+```csharp
 static void Test()
 {
     using (var file = File.Open("c:\\temp\\foo.txt", FileMode.OpenOrCreate, FileAccess.ReadWrite))
@@ -129,7 +124,7 @@ And this is it, with that information included:
         ExceptionUtils.cs(80,0): at LockCheck.ExceptionUtils.RethrowWithLockingInformation(Exception ex, String[] fileNames)
         ExceptionUtils.cs(24,0): at LockCheck.ExceptionUtils.Test()
 
-### Examples
+## Examples
 
 Two example identical example applications are included: one for .NET Framework 4.7.2+ and one for .NET Core 3.1+.
 
