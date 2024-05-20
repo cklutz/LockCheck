@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -221,6 +222,11 @@ namespace LockCheck.Windows
             return -1;
         }
 
+        // https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1700-3999-
+        // 1789 (0x6FD)
+        // The trust relationship between this workstation and the primary domain failed.
+        const int ERROR_TRUSTED_RELATIONSHIP_FAILURE = 1789;
+
         internal static string GetProcessOwner(SafeProcessHandle handle)
         {
             if (OpenProcessToken(handle, TOKEN_QUERY, out var token))
@@ -228,12 +234,24 @@ namespace LockCheck.Windows
                 if (ProcessTokenToSid(token, out var sid))
                 {
                     var x = new SecurityIdentifier(sid);
-                    try {
+                    try
+                    {
                         return x.Translate(typeof(NTAccount)).Value;
                     }
-                    catch (IdentityNotMappedException)
+                    catch (Exception ex)
                     {
-                        return null;
+                        if (ex is IdentityNotMappedException)
+                        {
+                            return null;
+                        }
+
+                        // It can fail if the file has domain permissions and there is bad network connectivity
+                        if (ex is Win32Exception win32Ex && win32Ex.NativeErrorCode == ERROR_TRUSTED_RELATIONSHIP_FAILURE)
+                        {
+                            return null;
+                        }
+
+                        throw;
                     }
                 }
             }

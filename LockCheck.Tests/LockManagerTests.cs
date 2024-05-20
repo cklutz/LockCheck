@@ -24,8 +24,15 @@ namespace LockCheck.Tests
                 Assert.AreEqual(process.StartTime, processInfos[0].StartTime);
                 Assert.IsNotNull(processInfos[0].ApplicationName);
                 Assert.AreEqual(processInfos[0].ExecutableFullPath?.ToLowerInvariant(), process.MainModule.FileName.ToLowerInvariant());
+
                 // Might contain domain, computername, etc. in SAM form
-                StringAssert.Contains(processInfos[0].Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
+                // In some cases, it is not possible to get the owner, e.g.
+                // > "The trust relationship between this workstation and the primary domain failed"
+                if (processInfos[0].Owner != null)
+                {
+                    StringAssert.Contains(processInfos[0].Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
+                }
+
                 // Might have an .exe suffix or not.
                 StringAssert.Contains(processInfos[0].ExecutableName?.ToLowerInvariant(), process.ProcessName.ToLowerInvariant());
             });
