@@ -1,0 +1,8 @@
+<Project>
+
+  <PropertyGroup>
+    <DebugType>embedded</DebugType>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>

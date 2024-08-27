@@ -18,6 +18,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.NetCore", "Test.NetCor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LockCheck.Tests", "LockCheck.Tests\LockCheck.Tests.csproj", "{2970DE55-5A3A-4252-ABF9-9146A759AFD2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LockCheckTool", "LockCheckTool\LockCheckTool.csproj", "{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -74,6 +76,18 @@ Global
 		{2970DE55-5A3A-4252-ABF9-9146A759AFD2}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{2970DE55-5A3A-4252-ABF9-9146A759AFD2}.Release|Win32.ActiveCfg = Release|Any CPU
 		{2970DE55-5A3A-4252-ABF9-9146A759AFD2}.Release|Win32.Build.0 = Release|Any CPU
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Debug|Mixed Platforms.ActiveCfg = Debug|Mixed Platforms
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Debug|Mixed Platforms.Build.0 = Debug|Mixed Platforms
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Debug|Win32.Build.0 = Debug|Win32
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Release|Mixed Platforms.ActiveCfg = Release|Mixed Platforms
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Release|Mixed Platforms.Build.0 = Release|Mixed Platforms
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Release|Win32.ActiveCfg = Release|Win32
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
