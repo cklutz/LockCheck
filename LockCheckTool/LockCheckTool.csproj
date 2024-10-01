@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RollForward>major</RollForward>
+    <Version>1.0.1</Version>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>lockcheck</ToolCommandName>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageId>lockchecktool</PackageId>
+    <Authors>cklutz</Authors>
+    <Description>A tool to list processes locking a given file.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/cklutz/LockCheck</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cklutz/LockCheck</RepositoryUrl>
+    <PackageTags>.NET dotnet process lock check tool lockcheck</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LockCheck\LockCheck.csproj" />
+  </ItemGroup>
+
+</Project>

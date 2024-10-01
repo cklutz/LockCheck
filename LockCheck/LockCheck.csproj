@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net472;netcoreapp3.1</TargetFrameworks>
+    <TargetFrameworks>net472;net8.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
@@ -21,7 +21,7 @@
 
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);CA1031;CA1303;CA1801;CA1716;NU5105</NoWarn>
+    <NoWarn>$(NoWarn);CA1031;CA1303;CA1416;CA1801;CA1716;NU5105</NoWarn>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

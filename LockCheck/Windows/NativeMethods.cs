@@ -223,14 +223,21 @@ namespace LockCheck.Windows
 
         internal static string GetProcessOwner(SafeProcessHandle handle)
         {
-            if (OpenProcessToken(handle, TOKEN_QUERY, out var token))
+            try
             {
-                if (ProcessTokenToSid(token, out var sid))
+                if (OpenProcessToken(handle, TOKEN_QUERY, out var token))
                 {
-                    var x = new SecurityIdentifier(sid);
-                    return x.Translate(typeof(NTAccount)).Value;
+                    if (ProcessTokenToSid(token, out var sid))
+                    {
+                        var x = new SecurityIdentifier(sid);
+                        return x.Translate(typeof(NTAccount)).Value;
+                    }
                 }
             }
+            catch
+            {
+            }
+
             return null;
         }
 
