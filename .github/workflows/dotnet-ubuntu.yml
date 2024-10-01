@@ -20,8 +20,8 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 3.1.301
+        dotnet-version: 8.0
     - name: Build
-      run: dotnet build --framework netcoreapp3.1
+      run: dotnet build --framework net8.0
     - name: Test
-      run: dotnet test --no-build --verbosity normal --framework netcoreapp3.1
+      run: dotnet test --no-build --verbosity normal --framework net8.0
