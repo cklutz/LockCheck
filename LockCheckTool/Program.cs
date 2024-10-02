@@ -16,7 +16,7 @@ namespace LockCheck
                         typeof(Program).Assembly.GetName().Name);
                 }
 
-                var infos = LockManager.GetLockingProcessInfos(args);
+                var infos = LockManager.GetLockingProcessInfos(args.ToList());
                 if (!infos.Any())
                 {
                     Console.WriteLine("No locking processes found.");

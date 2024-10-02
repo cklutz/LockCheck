@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
 namespace LockCheck.Windows
@@ -30,6 +33,31 @@ namespace LockCheck.Windows
         [DllImport(NtDll)]
         internal static extern uint NtQueryInformationFile(SafeFileHandle fileHandle, ref IO_STATUS_BLOCK IoStatusBlock,
             IntPtr pInfoBlock, uint length, FILE_INFORMATION_CLASS fileInformation);
+
+        internal enum PROCESS_INFORMATION_CLASS
+        {
+            ProcessBasicInformation = 0,
+            ProcessWow64Information = 26
+        }
+
+        [DllImport(NtDll)]
+        internal static extern uint NtQueryInformationProcess(SafeProcessHandle hProcess,
+            PROCESS_INFORMATION_CLASS processInformationClass,
+            ref PROCESS_BASIC_INFORMATION processInformation, int processInformationLength, IntPtr returnLength);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess, 
+            PROCESS_INFORMATION_CLASS processInformationClass,
+            ref PROCESS_BASIC_INFORMATION_WOW64 processInformation, int processInformationLength, IntPtr returnLength);
+
+        [DllImport(NtDll, EntryPoint = "NtQueryInformationProcess")]
+        internal static extern int NtQueryInformationProcessWow64(SafeProcessHandle hProcess, PROCESS_INFORMATION_CLASS processInformationClass, 
+            ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
+
+        internal const int NtQuerySystemProcessInformation = 5;
+
+        [DllImport(NtDll)]
+        internal static extern int NtQuerySystemInformation(int query, IntPtr dataPtr, int size, out int returnedSize);
 
         [DllImport(NtDll)]
         internal static extern int RtlNtStatusToDosError(uint status);
@@ -181,6 +209,11 @@ namespace LockCheck.Windows
             return OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
         }
 
+        internal static SafeProcessHandle OpenProcessRead(int pid)
+        {
+            return OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+        }
+
         [DllImport(KernelDll, SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern bool QueryFullProcessImageName(SafeProcessHandle hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
 
@@ -302,11 +335,199 @@ namespace LockCheck.Windows
         {
             return CreateFile(name,
                 0, // "FileAccess.Neither" Read nor Write
-                FileShare.Read|FileShare.Write|FileShare.Delete,
+                FileShare.Read | FileShare.Write | FileShare.Delete,
                 IntPtr.Zero,
                 FileMode.Open,
                 (int)FileAttributes.Normal,
                 IntPtr.Zero);
         }
+
+        internal struct PebOffsets
+        {
+            public int ProcessParametersOffset;
+            public int CommandLineOffset;
+            public int CurrentDirectoryOffset;
+            public int WindowTitleOffset;
+            public int DesktopInfoOffset;
+            public int ImagePathNameOffset;
+            public int EnvironmentOffset;
+            public int EnvironmentSizeOffset;
+
+            public static PebOffsets Get(bool target64)
+            {
+                var result = new PebOffsets();
+
+                // Use "windbg.exe" (the 32bit and 64bit version respectively!)
+                // and start an arbitrary (32bit and 64bit process). Then run
+                // "dt ntdll!_PEB"
+                // "dt ntdll!_RTL_USER_PROCESS_PARAMETERS"
+                // __ PEB __
+                result.ProcessParametersOffset = target64 ? 0x20 : 0x10;
+                // __ RTL_USER_PROCESS_PARAMTERS __
+                result.CommandLineOffset = target64 ? 0x70 : 0x40;
+                result.CurrentDirectoryOffset = target64 ? 0x38 : 0x24;
+                result.WindowTitleOffset = target64 ? 0xb0 : 0x70;
+                result.DesktopInfoOffset = target64 ? 0xc0 : 0x78;
+                // Note: we could use QueryFullProcessImageName() for this,
+                // but since we're already mocking around, we might as well
+                // use the following.
+                result.ImagePathNameOffset = target64 ? 0x60 : 0x38;
+                result.EnvironmentOffset = target64 ? 0x80 : 0x48;
+                result.EnvironmentSizeOffset = target64 ? 0x03f0 : 0x0290;
+
+                return result;
+            }
+        }
+
+        // native struct defined in ntexapi.h
+        [StructLayout(LayoutKind.Sequential)]
+        internal class SYSTEM_PROCESS_INFORMATION
+        {
+            internal uint NextEntryOffset;
+            internal uint NumberOfThreads;
+            internal long SpareLi1;
+            internal long SpareLi2;
+            internal long SpareLi3;
+            internal long CreateTime;
+            internal long UserTime;
+            internal long KernelTime;
+
+            internal ushort NameLength;
+            internal ushort MaximumNameLength;
+            internal IntPtr NamePtr;
+
+            internal int BasePriority;
+            internal IntPtr UniqueProcessId;
+            internal IntPtr InheritedFromUniqueProcessId;
+            internal uint HandleCount;
+            internal uint SessionId;
+            internal UIntPtr PageDirectoryBase;
+            internal UIntPtr PeakVirtualSize;
+            internal UIntPtr VirtualSize;
+            internal uint PageFaultCount;
+
+            internal UIntPtr PeakWorkingSetSize;
+            internal UIntPtr WorkingSetSize;
+            internal UIntPtr QuotaPeakPagedPoolUsage;
+            internal UIntPtr QuotaPagedPoolUsage;
+            internal UIntPtr QuotaPeakNonPagedPoolUsage;
+            internal UIntPtr QuotaNonPagedPoolUsage;
+            internal UIntPtr PagefileUsage;
+            internal UIntPtr PeakPagefileUsage;
+            internal UIntPtr PrivatePageCount;
+
+            internal long ReadOperationCount;
+            internal long WriteOperationCount;
+            internal long OtherOperationCount;
+            internal long ReadTransferCount;
+            internal long WriteTransferCount;
+            internal long OtherTransferCount;
+        }
+#pragma warning restore 169
+        [DllImport(KernelDll, SetLastError = true)]
+        internal static extern SafeProcessHandle GetCurrentProcess();
+
+        [DllImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool IsWow64Process(SafeProcessHandle hProcess, [MarshalAs(UnmanagedType.Bool)] out bool wow64Process);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref IntPtr lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+
+        [DllImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref UNICODE_STRING_32 lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref UNICODE_STRING lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, [MarshalAs(UnmanagedType.LPWStr)] string lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref uint data, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+
+        // for 32-bit process in a 64-bit OS only
+
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, IntPtr data, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref long lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref UNICODE_STRING_WOW64 lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, [MarshalAs(UnmanagedType.LPWStr)] string lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref uint data, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct PROCESS_BASIC_INFORMATION
+        {
+            public IntPtr Reserved1;
+            public IntPtr PebBaseAddress;
+            public IntPtr Reserved2_0;
+            public IntPtr Reserved2_1;
+            public IntPtr UniqueProcessId;
+            public IntPtr InheritedFromUniqueProcessId;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct UNICODE_STRING
+        {
+            public short Length;
+            public short MaximumLength;
+            public IntPtr Buffer;
+
+            public string GetLpBuffer() => new string('\0', Length / 2);
+        }
+
+        // for 32-bit process in a 64-bit OS only
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct PROCESS_BASIC_INFORMATION_WOW64
+        {
+            public long Reserved1;
+            public long PebBaseAddress;
+            public long Reserved2_0;
+            public long Reserved2_1;
+            public long UniqueProcessId;
+            public long InheritedFromUniqueProcessId;
+        }
+
+        // for 32-bit process in a 64-bit OS only
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct UNICODE_STRING_WOW64
+        {
+            public short Length;
+            public short MaximumLength;
+            public long Buffer;
+
+            public string GetLpBuffer() => new string('\0', Length / 2);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct UNICODE_STRING_32
+        {
+            public short Length;
+            public short MaximumLength;
+            public int Buffer;
+
+            public string GetLpBuffer() => new string('\0', Length / 2);
+        }
+
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -9,7 +10,7 @@ namespace LockCheck.Windows
 {
     internal static class RestartManager
     {
-        public static IEnumerable<ProcessInfo> GetLockingProcessInfos(params string[] paths)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(List<string> paths, ref List<string> directories)
         {
             if (paths == null)
                 throw new ArgumentNullException("paths");
@@ -26,8 +27,20 @@ namespace LockCheck.Windows
 
             try
             {
-                string[] resources = paths;
-                res = NativeMethods.RmRegisterResources(handle, (uint)resources.Length, resources, 0, null, 0, null);
+                var files = new HashSet<string>(paths.Count, StringComparer.OrdinalIgnoreCase);
+                foreach (string path in paths)
+                {
+                    if (Directory.Exists(path))
+                    {
+                        directories?.Add(path);
+                    }
+                    else
+                    {
+                        files.Add(path);
+                    }
+                }
+
+                res = NativeMethods.RmRegisterResources(handle, (uint)files.Count, files.ToArray(), 0, null, 0, null);
                 if (res != 0)
                     throw GetException(res, "RmRegisterResources", "Could not register resources.");
 
@@ -57,10 +70,10 @@ namespace LockCheck.Windows
                     {
                         // If pnProcInfo == 0, then there is simply no locking process (found), in this case rgAffectedApps is "null".
                         if (pnProcInfo == 0)
-                            return Enumerable.Empty<ProcessInfo>();
+                            return [];
 
                         Debug.Assert(rgAffectedApps != null, "rgAffectedApps != null");
-                        var lockInfos = new List<ProcessInfo>((int)pnProcInfo);
+                        var lockInfos = new HashSet<ProcessInfo>((int)pnProcInfo);
                         for (int i = 0; i < pnProcInfo; i++)
                         {
                             lockInfos.Add(ProcessInfoWindows.Create(rgAffectedApps[i]));
@@ -82,10 +95,10 @@ namespace LockCheck.Windows
                     throw GetException(res, "RmEndSession", "Failed to end the restart manager session.");
             }
 
-            return Enumerable.Empty<ProcessInfo>();
+            return [];
         }
 
-        private static Exception GetException(int res, string apiName, string message)
+        private static Win32Exception GetException(int res, string apiName, string message)
         {
             string reason;
             switch (res)

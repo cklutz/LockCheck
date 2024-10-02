@@ -21,7 +21,7 @@ namespace LockCheck.Windows
                     var result = createInstance(processId, handle, data);
 
                     string imagePath = NativeMethods.GetProcessImagePath(handle);
-                    result.ExecutableFullPath = NativeMethods.GetProcessImagePath(handle);
+                    result.ExecutableFullPath = imagePath;
                     result.Owner = NativeMethods.GetProcessOwner(handle);
                     result.ExecutableName = Path.GetFileName(imagePath);
                     result.ApplicationName = Path.GetFileName(imagePath);
@@ -32,6 +32,18 @@ namespace LockCheck.Windows
 
                 return null;
             }
+        }
+
+        internal static ProcessInfoWindows Create(Peb peb, NativeMethods.SYSTEM_PROCESS_INFORMATION pi)
+        {
+            var startTime = DateTime.FromFileTime(pi.CreateTime);
+            var result = new ProcessInfoWindows(peb.ProcessId, startTime);
+            result.ExecutableFullPath = peb.ExecutableFullPath;
+            result.ExecutableName = Path.GetFileName(peb.ExecutableFullPath);
+            result.ApplicationName = Path.GetFileName(peb.ExecutableFullPath);
+            result.SessionId = 0;
+
+            return result;
         }
 
         private ProcessInfoWindows(int processId, DateTime startTime)

@@ -39,10 +39,10 @@ namespace LockCheck.Tests
         {
             TestHelper.CreateLockSituation((ex, fileName) =>
             {
-                var processInfos = LockManager.GetLockingProcessInfos(new[] { fileName }, features).ToList();
+                var processInfos = LockManager.GetLockingProcessInfos([ fileName], features);
                 Assert.AreEqual(1, processInfos.Count); // Sanity, has been tested in LockManagerTests
                 var expectedMessageContents = new StringBuilder();
-                ProcessInfo.Format(expectedMessageContents, processInfos, new[] { fileName });
+                ProcessInfo.Format(expectedMessageContents, processInfos, [fileName]);
 
                 try
                 {

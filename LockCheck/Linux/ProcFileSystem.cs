@@ -6,12 +6,13 @@ namespace LockCheck.Linux
 {
     internal static class ProcFileSystem
     {
-        public static IEnumerable<ProcessInfo> GetLockingProcessInfos(params string[] paths)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(List<string> paths)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));
 
             Dictionary<long, string> inodesToPaths = null;
+            var result = new HashSet<ProcessInfo>();
 
             using (var reader = new StreamReader("/proc/locks"))
             {
@@ -29,14 +30,16 @@ namespace LockCheck.Linux
                         var processInfo = ProcessInfoLinux.Create(lockInfo);
                         if (processInfo != null)
                         {
-                            yield return processInfo;
+                            result.Add(processInfo);
                         }
                     }
                 }
             }
+
+            return result;
         }
 
-        private static Dictionary<long, string> GetInodeToPaths(string[] paths)
+        private static Dictionary<long, string> GetInodeToPaths(List<string> paths)
         {
             var inodesToPaths = new Dictionary<long, string>();
             foreach (string path in paths)

@@ -37,21 +37,23 @@ namespace LockCheck
 
         public static bool RethrowWithLockingInformation(this Exception ex, string[] fileNames, LockManagerFeatures features = default)
         {
-            var ioex = ex as IOException;
-            if (ioex != null && ioex.IsFileLocked())
+            if (fileNames?.Length > 0)
             {
-                // It is a race to get the lockers, while they are still there. So do this as early as possible.
-                var lockers = LockManager.GetLockingProcessInfos(fileNames, features).ToList();
-
-                if (lockers.Any())
+                var ioex = ex as IOException;
+                if (ioex != null && ioex.IsFileLocked())
                 {
-                    const int max = 10;
-                    var sb = new StringBuilder();
-                    sb.Append(ex.Message);
-                    sb.Append(" ");
-                    ProcessInfo.Format(sb, lockers, fileNames, max);
+                    // It is a race to get the lockers, while they are still there. So do this as early as possible.
+                    var lockers = LockManager.GetLockingProcessInfos(fileNames.ToList(), features).ToList();
 
-                    var exception = new IOException(sb.ToString(), ex);
+                    if (lockers.Any())
+                    {
+                        const int max = 10;
+                        var sb = new StringBuilder();
+                        sb.Append(ex.Message);
+                        sb.Append(" ");
+                        ProcessInfo.Format(sb, lockers, fileNames, max);
+
+                        var exception = new IOException(sb.ToString(), ex);
 #if NET472
                     if (s_setErrorCodeMethod.Value != null)
                     {
@@ -59,10 +61,11 @@ namespace LockCheck
                     }
 #endif
 #if NETCOREAPP
-                    exception.HResult = ex.HResult;
+                        exception.HResult = ex.HResult;
 #endif
 
-                    throw exception;
+                        throw exception;
+                    }
                 }
             }
             return false;

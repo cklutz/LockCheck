@@ -7,6 +7,7 @@ namespace LockCheck
     {
         None = 0,
         ThrowIfNotSupported = 1 << 0,
-        UseLowLevelApi = 1 << 1
+        UseLowLevelApi = 1 << 1,
+        CheckDirectories = 1 << 2
     }
 }
