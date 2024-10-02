@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Security.Principal;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
@@ -10,6 +11,10 @@ namespace LockCheck.Windows
     internal static class NativeMethods
     {
         private const string NtDll = "ntdll.dll";
+        private const string RestartManagerDll = "rstrtmgr.dll";
+        private const string AdvApi32Dll = "advapi32.dll";
+        private const string KernelDll = "kernel32.dll";
+        private const string PsApiDll = "psapi.dll";
 
         [StructLayout(LayoutKind.Sequential, Pack = 0)]
         internal struct IO_STATUS_BLOCK
@@ -34,16 +39,30 @@ namespace LockCheck.Windows
         [DllImport(NtDll)]
         internal static extern int RtlNtStatusToDosError(uint status);
 
+        [DllImport(NtDll)]
+        internal static extern int NtQueryInformationProcess(SafeProcessHandle ProcessHandle, int ProcessInformationClass, ref PROCESS_BASIC_INFORMATION ProcessInformation, int ProcessInformationLength, IntPtr ReturnLength);
+
+        [DllImport(NtDll)]
+        internal static extern int NtQueryInformationProcess(SafeProcessHandle ProcessHandle, int ProcessInformationClass, ref IntPtr ProcessInformation, int ProcessInformationLength, IntPtr ReturnLength);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64QueryInformationProcess64(SafeProcessHandle ProcessHandle, int ProcessInformationClass, ref PROCESS_BASIC_INFORMATION_WOW64 ProcessInformation, int ProcessInformationLength, IntPtr ReturnLength);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref long lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref UNICODE_STRING_WOW64 lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(NtDll)]
+        internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, [MarshalAs(UnmanagedType.LPWStr)] string lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
         internal const int ERROR_MR_MID_NOT_FOUND = 317;
 
         internal const uint STATUS_SUCCESS = 0;
         internal const uint STATUS_INFO_LENGTH_MISMATCH = 0xC0000004;
 
         // ----------------------------------------------------------------------------------------------
-
-        private const string RestartManagerDll = "rstrtmgr.dll";
-        private const string AdvApi32Dll = "advapi32.dll";
-        private const string KernelDll = "kernel32.dll";
 
         [DllImport(RestartManagerDll, CharSet = CharSet.Unicode)]
         internal static extern int RmRegisterResources(uint pSessionHandle,
@@ -174,7 +193,7 @@ namespace LockCheck.Windows
         internal const int PROCESS_VM_WRITE = 0x20;
 
         [DllImport(KernelDll, SetLastError = true)]
-        private static extern SafeProcessHandle OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+        internal static extern SafeProcessHandle OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
 
         internal static SafeProcessHandle OpenProcessLimited(int pid)
         {
@@ -210,6 +229,22 @@ namespace LockCheck.Windows
 
         [DllImport(KernelDll, SetLastError = true)]
         private static extern bool ProcessIdToSessionId(int dwProcessId, out int sessionId);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref IntPtr lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref UNICODE_STRING lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref UNICODE_STRING_32 lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true)]
+        internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, [MarshalAs(UnmanagedType.LPWStr)] string lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [DllImport(KernelDll, SetLastError = true, CallingConvention = CallingConvention.Winapi)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool IsWow64Process([In] SafeProcessHandle processHandle, [Out, MarshalAs(UnmanagedType.Bool)] out bool wow64Process);
 
         internal static int GetProcessSessionId(int dwProcessId)
         {
@@ -308,5 +343,111 @@ namespace LockCheck.Windows
                 (int)FileAttributes.Normal,
                 IntPtr.Zero);
         }
+
+        [DllImport(PsApiDll, CharSet = CharSet.Auto, SetLastError = true)]
+        [ResourceExposure(ResourceScope.Machine)]
+        public static extern bool EnumProcesses(int[] processIds, int size, out int needed);
+
+        internal static int[] GetProcessIds()
+        {
+            int[] processIds = new int[256];
+            int size;
+
+            for (; ; )
+            {
+                if (!EnumProcesses(processIds, processIds.Length * 4, out size))
+                {
+                    return Array.Empty<int>();
+                }
+
+                if (size == processIds.Length * 4)
+                {
+                    processIds = new int[processIds.Length * 2];
+                    continue;
+                }
+
+                break;
+            }
+
+            int[] ids = new int[size / 4];
+            Array.Copy(processIds, ids, ids.Length);
+
+            return ids;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct UNICODE_STRING_32
+        {
+            public short Length;
+            public short MaximumLength;
+            public int Buffer;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct UNICODE_STRING
+        {
+            public short Length;
+            public short MaximumLength;
+            public IntPtr Buffer;
+        }
+
+        // for 32-bit process
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct UNICODE_STRING_WOW64
+        {
+            public short Length;
+            public short MaximumLength;
+            public long Buffer;
+        }
+
+        internal enum PROCESSINFOCLASS : int
+        {
+            ProcessBasicInformation = 0, // 0, q: PROCESS_BASIC_INFORMATION, PROCESS_EXTENDED_BASIC_INFORMATION
+            ProcessWow64Information = 26, // q: ULONG_PTR
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct PROCESS_BASIC_INFORMATION
+        {
+            public IntPtr Reserved1;
+            public IntPtr PebBaseAddress;
+            public IntPtr Reserved2_0;
+            public IntPtr Reserved2_1;
+            public IntPtr UniqueProcessId;
+            public IntPtr Reserved3;
+        }
+
+        // for 32-bit process in a 64-bit OS only
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct PROCESS_BASIC_INFORMATION_WOW64
+        {
+            public long Reserved1;
+            public long PebBaseAddress;
+            public long Reserved2_0;
+            public long Reserved2_1;
+            public long UniqueProcessId;
+            public long Reserved3;
+        }
+
+        internal static bool GetProcessIsWow64(SafeProcessHandle hProcess)
+        {
+            if ((OSVersion.Major == 5 && OSVersion.Minor >= 1) || OSVersion.Major >= 6)
+            {
+                if (!IsWow64Process(hProcess, out bool retVal))
+                {
+                    return false;
+                }
+
+                return retVal;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        internal static readonly Version OSVersion = Environment.OSVersion.Version;
+        internal static readonly bool Is64BitOperatingSystem = Environment.Is64BitOperatingSystem;
+        internal static readonly bool IsCurrentProcessWOW64 = Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess;
     }
 }
