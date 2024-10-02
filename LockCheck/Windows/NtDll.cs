@@ -2,18 +2,17 @@ using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Xml.Schema;
 
 namespace LockCheck.Windows
 {
     internal static class NtDll
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(List<string> paths, ref List<string> directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string> directories)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));
@@ -118,11 +117,17 @@ namespace LockCheck.Windows
                 static (dirs, currentPtr, idx, pi) =>
                 {
                     var peb = new Peb(pi);
-                    if (!peb.HasError && 
-                        !string.IsNullOrEmpty(peb.CurrentDirectory) &&
-                        dirs.Find(d => d.StartsWith(peb.CurrentDirectory, StringComparison.OrdinalIgnoreCase)) != null)
+
+                    if (/*!peb.HasError && */!string.IsNullOrEmpty(peb.CurrentDirectory))
                     {
-                        return (ProcessInfo)ProcessInfoWindows.Create(peb, pi);
+                        // If the process' current directory is the search path itself, or it is somewhere nested below it,
+                        // we have to take it into account. This will also account for differences in the two when the
+                        // search path does not end with a '\', but the PEB's current directory does (which is always the
+                        // case).
+                        if (dirs.FindIndex(d => peb.CurrentDirectory.StartsWith(d, StringComparison.OrdinalIgnoreCase)) != -1)
+                        {
+                            return (ProcessInfo)ProcessInfoWindows.Create(peb);
+                        }
                     }
 
                     return null;
@@ -278,26 +283,35 @@ namespace LockCheck.Windows
         }
     }
 
+    [DebuggerDisplay("{HasError} {ProcessId} {ExecutableFullPath}")]
     public class Peb
     {
-        private bool hasError;
+        private bool _hasError;
+#if DEBUG
+        private string _errorStack;
+#endif
 
         public int ProcessId { get; private set; }
+        public int SessionId { get; private set; }
         public string CommandLine { get; private set; }
         public string CurrentDirectory { get; private set; }
         public string WindowTitle { get; private set; }
         public string ExecutableFullPath { get; private set; }
         public string DesktopInfo { get; private set; }
 
-        public bool HasError
+        public string Owner { get; private set; }
+        public DateTime StartTime { get; private set; }
+
+        public bool HasError => _hasError;
+
+        public void SetError()
         {
-            get => hasError;
-            set
+            if (!_hasError)
             {
-                if (!hasError)
-                {
-                    hasError = value;
-                }
+                _hasError = true;
+#if DEBUG
+                _errorStack = Environment.StackTrace;
+#endif
             }
         }
 
@@ -305,7 +319,10 @@ namespace LockCheck.Windows
         {
             set
             {
-                HasError = !value;
+                if (!value)
+                {
+                    SetError();
+                }
             }
         }
 
@@ -317,7 +334,7 @@ namespace LockCheck.Windows
 
             if (process.IsInvalid)
             {
-                HasError = true;
+                SetError();
                 return;
             }
 
@@ -332,7 +349,7 @@ namespace LockCheck.Windows
             {
                 if (!NativeMethods.IsWow64Process(process, out bool isWow64Target))
                 {
-                    HasError = true;
+                    SetError();
                     return;
                 }
 
@@ -346,27 +363,41 @@ namespace LockCheck.Windows
                 if (!target64)
                 {
                     // os: 64bit, self: any, target: 32bit
-                    FillTargetIs32BitProcess(process, offsets, this);
+                    InitTarget32(process, offsets, this);
                 }
                 else if (!self64)
                 {
                     // os: 64bit, self: 32bit, target: 64bit
-                    FillTargetIs64BitProcess(process, offsets, this);
+                    InitTarget64(process, offsets, this);
                 }
                 else
                 {
                     // os: 64bit, self: 64bit, target: 64bit
-                    FillTargetIsAnyProcess(process, offsets, this);
+                    InitAny(process, offsets, this);
                 }
             }
             else
             {
                 // os: 32bit, self: 32bit, target: 32bit
-                FillTargetIsAnyProcess(process, offsets, this);
+                InitAny(process, offsets, this);
             }
+
+            // Make sure that the current directory always ends with a backslash. AFAICT that is always the case,
+            // so this should really be a noop, but we need to make sure to ensure hassle free comparison later.
+            if (!string.IsNullOrEmpty(CurrentDirectory) && CurrentDirectory[CurrentDirectory.Length - 1] != '\\')
+            {
+                CurrentDirectory += "\\";
+            }
+
+            // Owner is not really part of the native PEB, but since we have the process handle
+            // here anyway, and going to need this value later on, we get it here as well.
+            Owner = NativeMethods.GetProcessOwner(process);
+
+            // Also not part of native PEB, but useful and need later on.
+            StartTime = DateTime.FromFileTime(pi.CreateTime);
         }
 
-        private static void FillTargetIsAnyProcess(SafeProcessHandle handle, NativeMethods.PebOffsets offsets, Peb peb)
+        private static void InitAny(SafeProcessHandle handle, NativeMethods.PebOffsets offsets, Peb peb)
         {
             var pbi = new NativeMethods.PROCESS_BASIC_INFORMATION();
             if (NativeMethods.NtQueryInformationProcess(handle, NativeMethods.PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero) == NativeMethods.STATUS_SUCCESS)
@@ -380,11 +411,13 @@ namespace LockCheck.Windows
                     (peb.StillOK, peb.WindowTitle) = TryGetString(handle, pp, offsets.WindowTitleOffset);
                     (peb.StillOK, peb.DesktopInfo) = TryGetString(handle, pp, offsets.DesktopInfoOffset);
                 }
+
+                (peb.StillOK, peb.SessionId) = TryGetInt(handle, pbi.PebBaseAddress, offsets.SessionIdOffset);
             }
         }
 
 
-        private static void FillTargetIs64BitProcess(SafeProcessHandle handle, NativeMethods.PebOffsets offsets, Peb peb)
+        private static void InitTarget64(SafeProcessHandle handle, NativeMethods.PebOffsets offsets, Peb peb)
         {
             var pbi = new NativeMethods.PROCESS_BASIC_INFORMATION_WOW64();
             if (NativeMethods.NtWow64QueryInformationProcess64(handle, NativeMethods.PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero) != NativeMethods.STATUS_SUCCESS)
@@ -398,10 +431,12 @@ namespace LockCheck.Windows
                     (peb.StillOK, peb.WindowTitle) = TryGetWow64String(handle, pp, offsets.WindowTitleOffset);
                     (peb.StillOK, peb.DesktopInfo) = TryGetWow64String(handle, pp, offsets.DesktopInfoOffset);
                 }
+
+                (peb.StillOK, peb.SessionId) = TryGetWow64Int(handle, pbi.PebBaseAddress, offsets.SessionIdOffset);
             }
         }
 
-        private static void FillTargetIs32BitProcess(SafeProcessHandle handle, NativeMethods.PebOffsets offsets, Peb peb)
+        private static void InitTarget32(SafeProcessHandle handle, NativeMethods.PebOffsets offsets, Peb peb)
         {
             var pbi = new NativeMethods.PROCESS_BASIC_INFORMATION();
             if (NativeMethods.NtQueryInformationProcess(handle, NativeMethods.PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero) != NativeMethods.STATUS_SUCCESS)
@@ -419,19 +454,21 @@ namespace LockCheck.Windows
                         (peb.StillOK, peb.WindowTitle) = TryGetString32(handle, pp, offsets.WindowTitleOffset);
                         (peb.StillOK, peb.DesktopInfo) = TryGetString32(handle, pp, offsets.DesktopInfoOffset);
                     }
+
+                    (peb.StillOK, peb.SessionId) = TryGetInt32(handle, new IntPtr(peb32.ToInt64()), offsets.SessionIdOffset);
                 }
             }
         }
 
-        private static (bool, IntPtr) TryGetIntPtr32(SafeProcessHandle handle, IntPtr pp, int offset)
+        private static (bool, int) TryGetInt32(SafeProcessHandle handle, IntPtr pp, int offset)
         {
             var ptr = IntPtr.Zero;
             if (NativeMethods.ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(sizeof(int)), IntPtr.Zero))
             {
-                return (true, ptr);
+                return (true, ptr.ToInt32());
             }
 
-            return (false, ptr);
+            return (false, ptr.ToInt32());
         }
 
         private static (bool, string) TryGetString32(SafeProcessHandle handle, IntPtr pp, int offset)
@@ -454,17 +491,17 @@ namespace LockCheck.Windows
             return (false, str);
         }
 
-        private static (bool, IntPtr) TryGetWow64IntPtr(SafeProcessHandle handle, long pp, int offset)
+        private static (bool, int) TryGetWow64Int(SafeProcessHandle handle, long pp, int offset)
         {
             var ptr = IntPtr.Zero;
             uint buf = 0;
             if (NativeMethods.NtWow64ReadVirtualMemory64(handle, pp + offset, ref buf, sizeof(uint), IntPtr.Zero) == NativeMethods.STATUS_SUCCESS)
             {
                 ptr = new IntPtr(buf);
-                return (true, ptr);
+                return (true, ptr.ToInt32());
             }
 
-            return (false, ptr);
+            return (false, ptr.ToInt32());
         }
 
         private static (bool, string) TryGetWow64String(SafeProcessHandle handle, long pp, int offset)
@@ -487,15 +524,15 @@ namespace LockCheck.Windows
             return (false, str);
         }
 
-        private static (bool, IntPtr) TryGetIntPtr(SafeProcessHandle handle, IntPtr pp, int offset)
+        private static (bool, int) TryGetInt(SafeProcessHandle handle, IntPtr pp, int offset)
         {
             var ptr = IntPtr.Zero;
             if (NativeMethods.ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(IntPtr.Size), IntPtr.Zero))
             {
-                return (true, ptr);
+                return (true, ptr.ToInt32());
             }
 
-            return (false, ptr);
+            return (false, ptr.ToInt32());
         }
 
         private static (bool, string) TryGetString(SafeProcessHandle handle, IntPtr pp, int offset)

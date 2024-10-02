@@ -6,7 +6,7 @@ namespace LockCheck.Linux
 {
     internal static class ProcFileSystem
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(List<string> paths)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));
@@ -39,7 +39,7 @@ namespace LockCheck.Linux
             return result;
         }
 
-        private static Dictionary<long, string> GetInodeToPaths(List<string> paths)
+        private static Dictionary<long, string> GetInodeToPaths(string[] paths)
         {
             var inodesToPaths = new Dictionary<long, string>();
             foreach (string path in paths)

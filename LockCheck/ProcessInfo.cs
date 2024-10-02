@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -8,6 +9,7 @@ namespace LockCheck
     /// <summary>
     /// Provides information about a process that is holding a lock on a file.
     /// </summary>
+    [DebuggerDisplay("{ProcessId} {StartTime} {ExecutableName}")]
     public abstract class ProcessInfo
     {
         protected ProcessInfo(int processId, DateTime startTime)
@@ -89,10 +91,7 @@ namespace LockCheck
             return false;
         }
 
-        public override string ToString()
-        {
-            return ProcessId + "@" + StartTime.ToString("s");
-        }
+        public override string ToString() => ProcessId + "@" + StartTime.ToString("s");
 
         public string ToString(string format)
         {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using LockCheck.Linux;
 using LockCheck.Windows;
@@ -9,7 +8,7 @@ namespace LockCheck
 {
     public static class LockManager
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(List<string> paths, LockManagerFeatures features = default)
+        public static IEnumerable<ProcessInfo> GetLockingProcessInfos(string[] paths, LockManagerFeatures features = default)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));

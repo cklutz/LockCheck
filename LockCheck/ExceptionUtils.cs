@@ -9,7 +9,7 @@ namespace LockCheck
 {
     public static class ExceptionUtils
     {
-#if NET472
+#if NETFRAMEWORK
         private static readonly Lazy<MethodInfo> s_setErrorCodeMethod = new Lazy<MethodInfo>(
             () => typeof(Exception).GetMethod("SetErrorCode",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.InvokeMethod,
@@ -43,7 +43,7 @@ namespace LockCheck
                 if (ioex != null && ioex.IsFileLocked())
                 {
                     // It is a race to get the lockers, while they are still there. So do this as early as possible.
-                    var lockers = LockManager.GetLockingProcessInfos(fileNames.ToList(), features).ToList();
+                    var lockers = LockManager.GetLockingProcessInfos(fileNames, features).ToList();
 
                     if (lockers.Any())
                     {
@@ -54,7 +54,7 @@ namespace LockCheck
                         ProcessInfo.Format(sb, lockers, fileNames, max);
 
                         var exception = new IOException(sb.ToString(), ex);
-#if NET472
+#if NETFRAMEWORK
                     if (s_setErrorCodeMethod.Value != null)
                     {
                         s_setErrorCodeMethod.Value.Invoke(exception, new object[] { ex.HResult });

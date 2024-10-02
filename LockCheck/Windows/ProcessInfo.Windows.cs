@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Reflection.Emit;
 using Microsoft.Win32.SafeHandles;
 
 namespace LockCheck.Windows
@@ -34,14 +36,14 @@ namespace LockCheck.Windows
             }
         }
 
-        internal static ProcessInfoWindows Create(Peb peb, NativeMethods.SYSTEM_PROCESS_INFORMATION pi)
+        internal static ProcessInfoWindows Create(Peb peb)
         {
-            var startTime = DateTime.FromFileTime(pi.CreateTime);
-            var result = new ProcessInfoWindows(peb.ProcessId, startTime);
+            var result = new ProcessInfoWindows(peb.ProcessId, peb.StartTime);
             result.ExecutableFullPath = peb.ExecutableFullPath;
             result.ExecutableName = Path.GetFileName(peb.ExecutableFullPath);
             result.ApplicationName = Path.GetFileName(peb.ExecutableFullPath);
-            result.SessionId = 0;
+            result.SessionId = peb.SessionId;
+            result.Owner = peb.Owner;
 
             return result;
         }

@@ -352,6 +352,7 @@ namespace LockCheck.Windows
             public int ImagePathNameOffset;
             public int EnvironmentOffset;
             public int EnvironmentSizeOffset;
+            public int SessionIdOffset;
 
             public static PebOffsets Get(bool target64)
             {
@@ -362,6 +363,7 @@ namespace LockCheck.Windows
                 // "dt ntdll!_PEB"
                 // "dt ntdll!_RTL_USER_PROCESS_PARAMETERS"
                 // __ PEB __
+                result.SessionIdOffset = target64 ? 0x02c0 : 0x01d4;
                 result.ProcessParametersOffset = target64 ? 0x20 : 0x10;
                 // __ RTL_USER_PROCESS_PARAMTERS __
                 result.CommandLineOffset = target64 ? 0x70 : 0x40;

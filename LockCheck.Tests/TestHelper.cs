@@ -39,13 +39,15 @@ namespace LockCheck.Tests
 
         public static void CreateProcessWithCurrentDirectory(Action<(string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath)> action)
         {
-            string tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
+            string tempDirectoryName = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
+            const string sentinel = "TEST_READY";
 
             Process? process = null;
-            var info = new DirectoryInfo(tempDirectory);
+            var tempDir = new DirectoryInfo(tempDirectoryName);
             try
             {
-                info.Create();
+                tempDir.Create();
+
                 var si = new ProcessStartInfo
                 {
                     UseShellExecute = false,
@@ -55,34 +57,41 @@ namespace LockCheck.Tests
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    si.FileName = Environment.ExpandEnvironmentVariables(@"%windir%\system32\WindowsPowerShell\v1.0\powershell.exe");
-                    si.Arguments = $"-NoProfile -Command \"cd '{tempDirectory}';echo TEST_READY; sleep 10; exit\"";
+                    si.FileName = @"C:\Windows\System32\cmd.exe";
+                    si.Arguments = $"/K \"cd {tempDir.FullName} && echo {sentinel}\"";
                 }
                 else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                 {
                     si.FileName = "/bin/sh";
-                    si.Arguments = $"-c \"cd {tempDirectory};echo TEST_READY; sleep 10; exit\"";
+                    si.Arguments = $"-c \"cd {tempDir.FullName};echo {sentinel}; sleep 10; exit\"";
                 }
                 else
                 {
                     throw new PlatformNotSupportedException();
                 }
 
-                using var semaphore = new SemaphoreSlim(1);
-                process = Process.Start(si);
+                using var waitForStartupComplete = new ManualResetEventSlim();
+
+                process = new Process();
+                process.StartInfo = si;
                 process.OutputDataReceived += (_, e) =>
                 {
-                    if (e.Data != null && e.Data.Contains("TEST_READY"))
+                    if (e.Data != null && e.Data.Contains(sentinel))
                     {
-                        semaphore.Release();
+                        waitForStartupComplete.Set();
                     }
                 };
-                process.BeginOutputReadLine();
-                process.Start();
 
-                if (semaphore.Wait(TimeSpan.FromSeconds(20)))
+                if (!process.Start())
                 {
-                    action((tempDirectory, process.Id, process.SessionId, process.StartTime, process.ProcessName, si.FileName));
+                    throw new InvalidOperationException($"Failed to start process: {si.FileName} {si.Arguments}");
+                }
+
+                process.BeginOutputReadLine();
+
+                if (waitForStartupComplete.Wait(TimeSpan.FromSeconds(20)))
+                {
+                    action((tempDir.FullName, process.Id, process.SessionId, process.StartTime, process.ProcessName, si.FileName));
                 }
                 else
                 {
@@ -93,8 +102,10 @@ namespace LockCheck.Tests
             {
                 try
                 {
+                    Console.WriteLine($"KILL IT .... {process.Id}");
                     process?.Kill();
                     process?.WaitForExit();
+                    Console.WriteLine("KILLED IT.");
                 }
                 catch (InvalidOperationException)
                 {
@@ -105,7 +116,7 @@ namespace LockCheck.Tests
                     process?.Dispose();
                 }
 
-                info.Delete();
+                tempDir.Delete();
             }
         }
     }

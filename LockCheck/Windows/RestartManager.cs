@@ -10,7 +10,7 @@ namespace LockCheck.Windows
 {
     internal static class RestartManager
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(List<string> paths, ref List<string> directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string> directories)
         {
             if (paths == null)
                 throw new ArgumentNullException("paths");
@@ -27,7 +27,7 @@ namespace LockCheck.Windows
 
             try
             {
-                var files = new HashSet<string>(paths.Count, StringComparer.OrdinalIgnoreCase);
+                var files = new HashSet<string>(paths.Length, StringComparer.OrdinalIgnoreCase);
                 foreach (string path in paths)
                 {
                     if (Directory.Exists(path))

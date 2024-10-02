@@ -51,7 +51,7 @@ namespace Test.NetCore
 
         private static void DumpLockInfo(string[] paths)
         {
-            var infos = LockManager.GetLockingProcessInfos(paths?.ToList(), LockManagerFeatures.UseLowLevelApi);
+            var infos = LockManager.GetLockingProcessInfos(paths, LockManagerFeatures.UseLowLevelApi);
             if (!infos.Any())
             {
                 Console.WriteLine("No locking processes found.");
