@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -282,8 +283,14 @@ namespace LockCheck.Windows
         }
     }
 
+    public interface ICanHaveError
+    {
+        void SetError();
+        bool HasError { get; }
+    }
+
     [DebuggerDisplay("{HasError} {ProcessId} {ExecutableFullPath}")]
-    public class Peb
+    public class Peb : ICanHaveError
     {
         private bool _hasError;
 #if DEBUG
@@ -311,17 +318,6 @@ namespace LockCheck.Windows
 #if DEBUG
                 _errorStack = Environment.StackTrace;
 #endif
-            }
-        }
-
-        private bool StillOK
-        {
-            set
-            {
-                if (!value)
-                {
-                    SetError();
-                }
             }
         }
 
@@ -362,23 +358,23 @@ namespace LockCheck.Windows
                 if (!target64)
                 {
                     // os: 64bit, self: any, target: 32bit
-                    InitTarget32(process, offsets, this);
+                    InitTarget32SelfAny(process, offsets, this);
                 }
                 else if (!self64)
                 {
                     // os: 64bit, self: 32bit, target: 64bit
-                    InitTarget64(process, offsets, this);
+                    InitTarget64Self32(process, offsets, this);
                 }
                 else
                 {
                     // os: 64bit, self: 64bit, target: 64bit
-                    InitAny(process, offsets, this);
+                    InitTargetAnySelfAny(process, offsets, this);
                 }
             }
             else
             {
                 // os: 32bit, self: 32bit, target: 32bit
-                InitAny(process, offsets, this);
+                InitTargetAnySelfAny(process, offsets, this);
             }
 
             // Make sure that the current directory always ends with a backslash. AFAICT that is always the case,
@@ -396,201 +392,195 @@ namespace LockCheck.Windows
             StartTime = DateTime.FromFileTime(pi.CreateTime);
         }
 
-        private static void InitAny(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
+        private static void InitTargetAnySelfAny(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
         {
             var pbi = new PROCESS_BASIC_INFORMATION();
-            if (SUCCESS(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero)))
+            if (SUCCESS(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero), peb))
             {
                 var pp = new IntPtr();
-                if (SUCCESS(ReadProcessMemory(handle, new IntPtr(pbi.PebBaseAddress.ToInt64() + offsets.ProcessParametersOffset), ref pp, new IntPtr(Marshal.SizeOf(pp)), IntPtr.Zero)))
+                if (SUCCESS(ReadProcessMemory(handle, new IntPtr(pbi.PebBaseAddress.ToInt64() + offsets.ProcessParametersOffset), ref pp, new IntPtr(Marshal.SizeOf(pp)), IntPtr.Zero), peb))
                 {
-                    (peb.StillOK, peb.CommandLine) = TryGetString(handle, pp, offsets.CommandLineOffset);
-                    (peb.StillOK, peb.CurrentDirectory) = TryGetString(handle, pp, offsets.CurrentDirectoryOffset);
-                    (peb.StillOK, peb.ExecutableFullPath) = TryGetString(handle, pp, offsets.ImagePathNameOffset);
-                    (peb.StillOK, peb.WindowTitle) = TryGetString(handle, pp, offsets.WindowTitleOffset);
-                    (peb.StillOK, peb.DesktopInfo) = TryGetString(handle, pp, offsets.DesktopInfoOffset);
+                    peb.CommandLine = GetString(handle, pp, offsets.CommandLineOffset, peb);
+                    peb.CurrentDirectory = GetString(handle, pp, offsets.CurrentDirectoryOffset, peb);
+                    peb.ExecutableFullPath = GetString(handle, pp, offsets.ImagePathNameOffset, peb);
+                    peb.WindowTitle = GetString(handle, pp, offsets.WindowTitleOffset, peb);
+                    peb.DesktopInfo = GetString(handle, pp, offsets.DesktopInfoOffset, peb);
                 }
 
-                (peb.StillOK, peb.SessionId) = TryGetInt(handle, pbi.PebBaseAddress, offsets.SessionIdOffset);
+                peb.SessionId = GetInt32(handle, pbi.PebBaseAddress, offsets.SessionIdOffset, peb);
             }
         }
 
 
-        private static void InitTarget64(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
+        private static void InitTarget64Self32(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
         {
             var pbi = new PROCESS_BASIC_INFORMATION_WOW64();
-            if (SUCCESS(NtWow64QueryInformationProcess64(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero)))
+            if (SUCCESS(NtWow64QueryInformationProcess64(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero), peb))
             {
                 long pp = 0;
-                if (SUCCESS(NtWow64ReadVirtualMemory64(handle, pbi.PebBaseAddress + offsets.ProcessParametersOffset, ref pp, Marshal.SizeOf(pp), IntPtr.Zero)))
+                if (SUCCESS(NtWow64ReadVirtualMemory64(handle, pbi.PebBaseAddress + offsets.ProcessParametersOffset, ref pp, Marshal.SizeOf(pp), IntPtr.Zero), peb))
                 {
-                    (peb.StillOK, peb.CommandLine) = TryGetWow64String(handle, pp, offsets.CommandLineOffset);
-                    (peb.StillOK, peb.CurrentDirectory) = TryGetWow64String(handle, pp, offsets.CurrentDirectoryOffset);
-                    (peb.StillOK, peb.ExecutableFullPath) = TryGetWow64String(handle, pp, offsets.ImagePathNameOffset);
-                    (peb.StillOK, peb.WindowTitle) = TryGetWow64String(handle, pp, offsets.WindowTitleOffset);
-                    (peb.StillOK, peb.DesktopInfo) = TryGetWow64String(handle, pp, offsets.DesktopInfoOffset);
+                    peb.CommandLine = GetStringTarget64(handle, pp, offsets.CommandLineOffset, peb);
+                    peb.CurrentDirectory = GetStringTarget64(handle, pp, offsets.CurrentDirectoryOffset, peb);
+                    peb.ExecutableFullPath = GetStringTarget64(handle, pp, offsets.ImagePathNameOffset, peb);
+                    peb.WindowTitle = GetStringTarget64(handle, pp, offsets.WindowTitleOffset, peb);
+                    peb.DesktopInfo = GetStringTarget64(handle, pp, offsets.DesktopInfoOffset, peb);
                 }
 
-                (peb.StillOK, peb.SessionId) = TryGetWow64Int(handle, pbi.PebBaseAddress, offsets.SessionIdOffset);
+                peb.SessionId = GetInt32Target64(handle, pbi.PebBaseAddress, offsets.SessionIdOffset, peb);
             }
         }
 
-        private static void InitTarget32(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
+        private static void InitTarget32SelfAny(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
         {
             var pbi = new PROCESS_BASIC_INFORMATION();
-            if (SUCCESS(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero)))
+            if (SUCCESS(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero), peb))
             {
                 // A 32bit process on a 64bit OS has a separate PEB structure.
                 var peb32 = new IntPtr();
-                if (SUCCESS(NtQueryInformationProcessWow64(handle, PROCESS_INFORMATION_CLASS.ProcessWow64Information, ref peb32, IntPtr.Size, IntPtr.Zero)))
+                if (SUCCESS(NtQueryInformationProcessWow64(handle, PROCESS_INFORMATION_CLASS.ProcessWow64Information, ref peb32, IntPtr.Size, IntPtr.Zero), peb))
                 {
                     var pp = new IntPtr();
-                    if (SUCCESS(ReadProcessMemory(handle, new IntPtr(peb32.ToInt64() + offsets.ProcessParametersOffset), ref pp, new IntPtr(Marshal.SizeOf(pp)), IntPtr.Zero)))
+                    if (SUCCESS(ReadProcessMemory(handle, new IntPtr(peb32.ToInt64() + offsets.ProcessParametersOffset), ref pp, new IntPtr(Marshal.SizeOf(pp)), IntPtr.Zero), peb))
                     {
-                        (peb.StillOK, peb.CommandLine) = TryGetString32(handle, pp, offsets.CommandLineOffset);
-                        (peb.StillOK, peb.CurrentDirectory) = TryGetString32(handle, pp, offsets.CurrentDirectoryOffset);
-                        (peb.StillOK, peb.ExecutableFullPath) = TryGetString32(handle, pp, offsets.ImagePathNameOffset);
-                        (peb.StillOK, peb.WindowTitle) = TryGetString32(handle, pp, offsets.WindowTitleOffset);
-                        (peb.StillOK, peb.DesktopInfo) = TryGetString32(handle, pp, offsets.DesktopInfoOffset);
+                        peb.CommandLine = GetStringTarget32(handle, pp, offsets.CommandLineOffset, peb);
+                        peb.CurrentDirectory = GetStringTarget32(handle, pp, offsets.CurrentDirectoryOffset, peb);
+                        peb.ExecutableFullPath = GetStringTarget32(handle, pp, offsets.ImagePathNameOffset, peb);
+                        peb.WindowTitle = GetStringTarget32(handle, pp, offsets.WindowTitleOffset, peb);
+                        peb.DesktopInfo = GetStringTarget32(handle, pp, offsets.DesktopInfoOffset, peb);
                     }
 
-                    (peb.StillOK, peb.SessionId) = TryGetInt32(handle, new IntPtr(peb32.ToInt64()), offsets.SessionIdOffset);
+                    peb.SessionId = GetInt32Target32(handle, new IntPtr(peb32.ToInt64()), offsets.SessionIdOffset, peb);
                 }
             }
         }
 
-        private static (bool, int) TryGetInt32(SafeProcessHandle handle, IntPtr pp, int offset)
+        private static int GetInt32Target32(SafeProcessHandle handle, IntPtr pp, int offset, ICanHaveError he)
         {
             var ptr = IntPtr.Zero;
-            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(sizeof(int)), IntPtr.Zero)))
+            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(sizeof(int)), IntPtr.Zero), he))
             {
-                return (true, ptr.ToInt32());
+                return ptr.ToInt32();
             }
 
-            return (false, ptr.ToInt32());
+            he.SetError();
+            return default;
         }
 
-        private static (bool, string) TryGetString32(SafeProcessHandle handle, IntPtr pp, int offset)
+        private static string GetStringTarget32(SafeProcessHandle handle, IntPtr pp, int offset, ICanHaveError he)
         {
-            string str = null;
             var us = new UNICODE_STRING_32();
-            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero)))
+            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
             {
                 if ((us.Buffer != 0) && (us.Length != 0))
                 {
                     string lpBuffer = us.GetLpBuffer();
-                    if (SUCCESS(ReadProcessMemory(handle, new IntPtr(us.Buffer), lpBuffer, new IntPtr(us.Length), IntPtr.Zero)))
+                    if (SUCCESS(ReadProcessMemory(handle, new IntPtr(us.Buffer), lpBuffer, new IntPtr(us.Length), IntPtr.Zero), he))
                     {
-                        str = lpBuffer;
-                        return (true, str);
+                        return lpBuffer;
                     }
                 }
             }
 
-            return (false, str);
+            he.SetError();
+            return null;
         }
 
-        private static (bool, int) TryGetWow64Int(SafeProcessHandle handle, long pp, int offset)
+        private static int GetInt32Target64(SafeProcessHandle handle, long pp, int offset, ICanHaveError he)
         {
             var ptr = IntPtr.Zero;
             uint buf = 0;
-            if (SUCCESS(NtWow64ReadVirtualMemory64(handle, pp + offset, ref buf, sizeof(uint), IntPtr.Zero)))
+            if (SUCCESS(NtWow64ReadVirtualMemory64(handle, pp + offset, ref buf, sizeof(uint), IntPtr.Zero), he))
             {
                 ptr = new IntPtr(buf);
-                return (true, ptr.ToInt32());
+                return ptr.ToInt32();
             }
 
-            return (false, ptr.ToInt32());
+            he.SetError();
+            return default;
         }
 
-        private static (bool, string) TryGetWow64String(SafeProcessHandle handle, long pp, int offset)
+        private static string GetStringTarget64(SafeProcessHandle handle, long pp, int offset, ICanHaveError he)
         {
-            string str = null;
             var us = new UNICODE_STRING_WOW64();
-            if (SUCCESS(NtWow64ReadVirtualMemory64(handle, pp + offset, ref us, Marshal.SizeOf(us), IntPtr.Zero)))
+            if (SUCCESS(NtWow64ReadVirtualMemory64(handle, pp + offset, ref us, Marshal.SizeOf(us), IntPtr.Zero), he))
             {
                 if ((us.Buffer != 0) && (us.Length != 0))
                 {
                     string lpBuffer = us.GetLpBuffer();
-                    if (SUCCESS(NtWow64ReadVirtualMemory64(handle, us.Buffer, lpBuffer, us.Length, IntPtr.Zero)))
+                    if (SUCCESS(NtWow64ReadVirtualMemory64(handle, us.Buffer, lpBuffer, us.Length, IntPtr.Zero), he))
                     {
-                        str = lpBuffer;
-                        return (true, str);
+                        return lpBuffer;
                     }
                 }
             }
 
-            return (false, str);
+            he.SetError();
+            return null;
         }
 
-        private static (bool, int) TryGetInt(SafeProcessHandle handle, IntPtr pp, int offset)
+        private static int GetInt32(SafeProcessHandle handle, IntPtr pp, int offset, ICanHaveError he)
         {
             var ptr = IntPtr.Zero;
-            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(IntPtr.Size), IntPtr.Zero)))
+            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(IntPtr.Size), IntPtr.Zero), he))
             {
-                return (true, ptr.ToInt32());
+                return ptr.ToInt32();
             }
 
-            return (false, ptr.ToInt32());
+            he.SetError();
+            return 0;
         }
 
-        private static (bool, string) TryGetString(SafeProcessHandle handle, IntPtr pp, int offset)
+        private static string GetString(SafeProcessHandle handle, IntPtr pp, int offset, ICanHaveError he)
         {
-            string str = null;
             var us = new UNICODE_STRING();
-            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero)))
+            if (SUCCESS(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
             {
                 if ((us.Buffer != IntPtr.Zero) && (us.Length != 0))
                 {
                     string lpBuffer = us.GetLpBuffer();
-                    if (SUCCESS(ReadProcessMemory(handle, us.Buffer, lpBuffer, new IntPtr(us.Length), IntPtr.Zero)))
+                    if (SUCCESS(ReadProcessMemory(handle, us.Buffer, lpBuffer, new IntPtr(us.Length), IntPtr.Zero), he))
                     {
-                        str = lpBuffer;
-                        return (true, str);
+                        return lpBuffer;
                     }
                 }
             }
-            return (false, str);
+
+            he.SetError();
+            return null;
         }
 
-#if DEBUG
-        private static bool SUCCESS(uint status, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        private static bool SUCCESS(uint status, ICanHaveError he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (status != STATUS_SUCCESS)
             {
-                Console.WriteLine($"ERROR: at {callerName}(), in {filePath}:line {lineNumber} status={status:x08}");
+                he.SetError();
                 return false;
             }
 
             return true;
         }
 
-        private static bool SUCCESS(int status, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        private static bool SUCCESS(int status, ICanHaveError he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (status != STATUS_SUCCESS)
             {
-                Console.WriteLine($"ERROR: at {callerName}(), in {filePath}:line {lineNumber} status={status:x08}");
+                he.SetError();
                 return false;
             }
 
             return true;
         }
 
-        private static bool SUCCESS(bool result, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        private static bool SUCCESS(bool result, ICanHaveError he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (!result)
             {
-                int lastError = Marshal.GetLastWin32Error();
-                Console.WriteLine($"ERROR: at {callerName}(), in {filePath}:line {lineNumber} lastError={lastError:x08}");
+                he.SetError();
                 return false;
             }
 
             return true;
         }
-#else
-        private static bool SUCCESS(uint status) => status == NativeMethods.STATUS_SUCCESS;
-        private static bool SUCCESS(int status) => status == NativeMethods.STATUS_SUCCESS;
-        private static bool SUCCESS(bool result) => result;
-#endif
     }
 }

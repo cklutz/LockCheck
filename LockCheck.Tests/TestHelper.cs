@@ -45,9 +45,8 @@ namespace LockCheck.Tests
             string id = Guid.NewGuid().ToString("N");
             string tempDirectoryName = Path.Combine(Path.GetTempPath(), id + ".test");
             int sleep = 0; // forever
-            const string sentinel = "TEST_READY";
 
-            Process? process = null;
+            Process process = null;
             var tempDir = new DirectoryInfo(tempDirectoryName);
             try
             {
@@ -140,7 +139,7 @@ namespace LockCheck.Tests
             string tempDirectoryName = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
             const string sentinel = "TEST_READY";
 
-            Process? process = null;
+            Process process = null;
             var tempDir = new DirectoryInfo(tempDirectoryName);
             try
             {
