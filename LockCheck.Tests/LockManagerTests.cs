@@ -33,27 +33,35 @@ namespace LockCheck.Tests
 
 
         [DataTestMethod]
-        //[DataRow(LockManagerFeatures.None | LockManagerFeatures.CheckDirectories)]
-        [DataRow(LockManagerFeatures.UseLowLevelApi | LockManagerFeatures.CheckDirectories)]
-        public void LockInformationAvailableForDirectory(LockManagerFeatures features)
+        [DataRow(LockManagerFeatures.None | LockManagerFeatures.CheckDirectories, true)]
+        [DataRow(LockManagerFeatures.None | LockManagerFeatures.CheckDirectories, false)]
+        [DataRow(LockManagerFeatures.UseLowLevelApi | LockManagerFeatures.CheckDirectories, true)]
+        [DataRow(LockManagerFeatures.UseLowLevelApi | LockManagerFeatures.CheckDirectories, false)]
+        public void LockInformationAvailableForDirectory(LockManagerFeatures features, bool target64Bit)
         {
-            TestHelper.CreateProcessWithCurrentDirectory(((string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath) args) =>
+            if (!Environment.Is64BitOperatingSystem)
             {
-                var processInfos = LockManager.GetLockingProcessInfos([args.TemporaryDirectory], features).ToList();
+                throw new PlatformNotSupportedException("Expected 64bit operating system");
+            }
 
-                // Since "working directory" matches by path prefix, we might actually see multiple matches.
-                // Make sure we find at least the one we explicitly started.
-                var processInfo = processInfos.FirstOrDefault(pi => pi.ProcessId == args.ProcessId);
-                Assert.IsNotNull(processInfo);
-                Assert.AreEqual(args.ProcessId, processInfo.ProcessId);
-                Assert.AreEqual(args.SessionId, processInfo.SessionId);
-                Assert.AreEqual(args.ProcessStartTime, processInfo.StartTime);
-                Assert.AreEqual(args.ExecutableFullPath.ToLowerInvariant(), processInfo.ExecutableFullPath?.ToLowerInvariant());
-                // Might contain domain, computername, etc. in SAM form
-                StringAssert.Contains(processInfo.Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
-                // Might have an .exe suffix or not.
-                StringAssert.Contains(processInfo.ExecutableName?.ToLowerInvariant(), args.ProcessName.ToLowerInvariant());
-            });
+            TestHelper.CreateProcessWithCurrentDirectory(target64Bit,
+                ((string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath) args) =>
+                {
+                    var processInfos = LockManager.GetLockingProcessInfos([args.TemporaryDirectory], features).ToList();
+
+                    // Since "working directory" matches by path prefix, we might actually see multiple matches.
+                    // Make sure we find at least the one we explicitly started.
+                    var processInfo = processInfos.FirstOrDefault(pi => pi.ProcessId == args.ProcessId);
+                    Assert.IsNotNull(processInfo);
+                    Assert.AreEqual(args.ProcessId, processInfo.ProcessId);
+                    Assert.AreEqual(args.SessionId, processInfo.SessionId);
+                    Assert.AreEqual(args.ProcessStartTime, processInfo.StartTime);
+                    Assert.AreEqual(args.ExecutableFullPath.ToLowerInvariant(), processInfo.ExecutableFullPath?.ToLowerInvariant());
+                    // Might contain domain, computername, etc. in SAM form
+                    StringAssert.Contains(processInfo.Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
+                    // Might have an .exe suffix or not.
+                    StringAssert.Contains(processInfo.ExecutableName?.ToLowerInvariant(), args.ProcessName.ToLowerInvariant());
+                });
         }
     }
 }

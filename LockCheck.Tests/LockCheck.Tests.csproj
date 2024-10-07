@@ -1,9 +1,17 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
 
     <IsPackable>false</IsPackable>
+
+    <!-- Ignore the fact that some of the "LockCheck.Tests.Client.* projects don't have the same
+    RID as the current project. This is expected, however we need to have all files in our output
+    folder, so that we can invoke the executables during the tests.
+    Specifying ReferenceOutputAssembly=false on the ProjectReference "works" as well, but only
+    copies the exe stub, and not the actual .dll. So is useless here. -->
+    <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
+    
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +25,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LockCheck.Tests.Client\win-x86\LockCheck.Tests.Client.win-x86.csproj" />
+    <ProjectReference Include="..\LockCheck.Tests.Client\win-x64\LockCheck.Tests.Client.win-x64.csproj" />
+    <ProjectReference Include="..\LockCheck.Tests.Client\linux-x64\LockCheck.Tests.Client.linux-x64.csproj" />
     <ProjectReference Include="..\LockCheck\LockCheck.csproj" />
   </ItemGroup>
 
