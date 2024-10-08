@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -58,22 +57,43 @@ namespace LockCheck.Tests
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
-                    FileName = GetClientFullPath(target64Bit),
-                    Arguments = $"{id} \"{tempDirectoryName}\" {sleep}"
+                    RedirectStandardError = true
                 };
 
-                Console.WriteLine("===> " + si.FileName + " " + si.Arguments);
+                string clientFullPath = GetClientFullPath(target64Bit, out bool useDotNetExe);
+                if (useDotNetExe)
+                {
+                    si.FileName = "dotnet";
+                    si.Arguments = $"\"{clientFullPath}\" {id} \"{tempDirectoryName}\" {sleep}";
+                }
+                else
+                {
+                    si.FileName = clientFullPath;
+                    si.Arguments = $"{id} \"{tempDirectoryName}\" {sleep}";
+                }
+
+                Console.WriteLine($"Starting test target: {si.FileName} {si.Arguments}");
 
                 process = new Process();
                 process.StartInfo = si;
-                process.OutputDataReceived += (_, e) =>
+                process.OutputDataReceived += (p, e) =>
                 {
-                    Console.WriteLine(">>> " + e.Data);
+                    if (e.Data != null)
+                    {
+                        Console.WriteLine($"{((Process)p).Id:00000}: {e.Data}");
+                    }
+                };
+                process.ErrorDataReceived += (p, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        Console.WriteLine($"{((Process)p).Id:00000}: {e.Data}");
+                    }
                 };
 
                 if (!process.Start())
                 {
-                    throw new InvalidOperationException($"Failed to start process: {si.FileName} {si.Arguments}");
+                    throw new InvalidOperationException($"Failed to start test target: {si.FileName} {si.Arguments}");
                 }
 
                 process.BeginOutputReadLine();
@@ -90,7 +110,7 @@ namespace LockCheck.Tests
                         using (var reader = new StreamReader(server))
                         {
                             string message = reader.ReadLine();
-                            Console.WriteLine($"Received message from client: {message}");
+                            Console.WriteLine($"Test target send: {message}");
                         }
 
                         action((tempDir.FullName, process.Id, process.SessionId, process.StartTime, process.ProcessName, si.FileName));
@@ -101,10 +121,10 @@ namespace LockCheck.Tests
             {
                 try
                 {
-                    Console.WriteLine($"KILL IT .... {process.Id}");
+                    Console.WriteLine($"Killing test target process with process ID {process.Id} ...");
                     process?.Kill();
                     process?.WaitForExit();
-                    Console.WriteLine("KILLED IT.");
+                    Console.WriteLine("Process killed.");
                 }
                 catch (InvalidOperationException)
                 {
@@ -119,7 +139,7 @@ namespace LockCheck.Tests
             }
         }
 
-        private static string GetClientFullPath(bool target64Bit)
+        private static string GetClientFullPath(bool target64Bit, out bool useDotNetExe)
         {
             string runtimeIdentifier;
             string extension;
@@ -128,11 +148,13 @@ namespace LockCheck.Tests
             {
                 runtimeIdentifier = target64Bit ? "win-x64" : "win-x86";
                 extension = ".exe";
+                useDotNetExe = false;
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 runtimeIdentifier = "linux-x64";
-                extension = "";
+                extension = ".dll";
+                useDotNetExe = true;
             }
             else
             {
@@ -162,7 +184,12 @@ namespace LockCheck.Tests
                     "..", // in bin
                     "..", // in "LockCheck.Tests"
                     "..", // in "test"
-                    $@"LCTestTarget.{runtimeIdentifier}\bin\{configuration}\{targetFramework}\{runtimeIdentifier}\LCTestTarget{extension}"));
+                    $@"LCTestTarget.{runtimeIdentifier}",
+                    "bin",
+                    configuration.ToString(),
+                    targetFramework.ToString(),
+                    runtimeIdentifier,
+                    $"LCTestTarget{extension}"));
             return clientFullPath;
         }
 
