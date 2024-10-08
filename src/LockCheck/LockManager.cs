@@ -39,8 +39,18 @@ namespace LockCheck
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                // TODO: Need special handling for directories?
-                processInfos = ProcFileSystem.GetLockingProcessInfos(paths);
+                List<string> directories = (features & LockManagerFeatures.CheckDirectories) != 0 ? [] : null;
+
+                processInfos = ProcFileSystem.GetLockingProcessInfos(paths, ref directories);
+
+                if (directories?.Count > 0)
+                {
+                    var matches = ProcFileSystem.GetProcessesByWorkingDirectory(directories);
+                    foreach (var match in matches)
+                    {
+                        processInfos.Add(match.Value);
+                    }
+                }
             }
             else
             {

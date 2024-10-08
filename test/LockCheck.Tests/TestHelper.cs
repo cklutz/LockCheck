@@ -60,10 +60,10 @@ namespace LockCheck.Tests
                     RedirectStandardError = true
                 };
 
-                string clientFullPath = GetClientFullPath(target64Bit, out bool useDotNetExe);
-                if (useDotNetExe)
+                string clientFullPath = GetClientFullPath(target64Bit, out string hostExecutable);
+                if (hostExecutable != null)
                 {
-                    si.FileName = "dotnet";
+                    si.FileName = hostExecutable;
                     si.Arguments = $"\"{clientFullPath}\" {id} \"{tempDirectoryName}\" {sleep}";
                 }
                 else
@@ -139,7 +139,7 @@ namespace LockCheck.Tests
             }
         }
 
-        private static string GetClientFullPath(bool target64Bit, out bool useDotNetExe)
+        private static string GetClientFullPath(bool target64Bit, out string hostExecutable)
         {
             string runtimeIdentifier;
             string extension;
@@ -148,13 +148,13 @@ namespace LockCheck.Tests
             {
                 runtimeIdentifier = target64Bit ? "win-x64" : "win-x86";
                 extension = ".exe";
-                useDotNetExe = false;
+                hostExecutable = null;
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 runtimeIdentifier = "linux-x64";
                 extension = ".dll";
-                useDotNetExe = true;
+                hostExecutable = "/usr/share/dotnet/dotnet";
             }
             else
             {

@@ -26,41 +26,7 @@ namespace LockCheck.Linux
             //  8: OFDLCK ADVISORY  WRITE -1 08:01:8713209 128 191
 
 #if NETFRAMEWORK
-            string[] fields = line.Split(new [] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-            // Actual number of fields in /proc/locks might be larger, but we only need up to field #5 (INODE)
-            if (fields.Length < 6)
-            {
-                throw new IOException($"Unexpected number of fields {fields.Length} in '/proc/locks' ({line})");
-            }
-
-            int offset = 0; // Always the "ID" (e.g. "1:")
-            offset++;
-            if (fields[offset] == "->")
-            {
-                // "Blocked" optional marker
-                offset++;
-            }
-
-            var result = new LockInfo
-            {
-                LockType = fields[offset++],
-                LockMode = fields[offset++],
-                LockAccess = fields[offset++]
-            };
-
-            if (!int.TryParse(fields[offset++], out int processId))
-            {
-                throw new IOException($"Invalid process ID '{fields[offset]}' in '/proc/locks' ({line})");
-            }
-
-            result.ProcessId = processId;
-
-            if (!InodeInfo.TryParse(fields[offset++].AsSpan(), out var inodeInfo))
-            {
-                throw new IOException($"Invalid inode '{fields[offset]}' specification in '/proc/locks' ({line})");
-            }
-
+            throw new PlatformNotSupportedException();
 #else
             var span = line.AsSpan();
             int count = span.Count(' ') + 1;
@@ -99,11 +65,10 @@ namespace LockCheck.Linux
                 throw new IOException($"Invalid Inode '{span[ranges[offset]]}' specification in '/proc/locks' ({line})");
             }
 
-#endif
-
             result.InodeInfo = inodeInfo;
 
             return result;
+#endif
         }
     }
 }

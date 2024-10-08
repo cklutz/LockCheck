@@ -1,6 +1,9 @@
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace LockCheck.Linux
 {
@@ -81,7 +84,7 @@ namespace LockCheck.Linux
             throw new IOException($"Couldn't get user name for '{uid}' (errno = {error})");
         }
 
-        // Copied from github.com/dotnet/runtime, MIT licensed.
+        // Copied (and modified) from github.com/dotnet/runtime, MIT licensed.
         // ---BEGIN---------------------------------------------------------------------------------
 
         private const string SystemNative = "System.Native";
