@@ -34,8 +34,8 @@ namespace Test.NetFx
 
                     Console.WriteLine("Process ID        : {0}", p.ProcessId);
                     Console.WriteLine("Process Start Time: {0}", p.StartTime.ToString("F"));
-                    Console.WriteLine("Process File Path : {0}", p.FilePath);
-                    Console.WriteLine("Process User Name : {0}", p.UserName);
+                    Console.WriteLine("Process File Path : {0}", p.ExecutableName);
+                    Console.WriteLine("Process User Name : {0}", p.Owner);
                     Console.WriteLine("Executable  Name  : {0}", p.ExecutableName);
                     Console.WriteLine("Application Name  : {0}", p.ApplicationName);
                     Console.WriteLine("Session ID        : {0}", p.SessionId);

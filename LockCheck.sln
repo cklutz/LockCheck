@@ -3,30 +3,35 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35312.102
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheck", "LockCheck\LockCheck.csproj", "{CC3BF24A-0A94-4655-A3EF-A722974F0872}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheck", "src\LockCheck\LockCheck.csproj", "{CC3BF24A-0A94-4655-A3EF-A722974F0872}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7866B6F0-7EDD-450D-9674-34C69C96CE23}"
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
 		LICENSE = LICENSE
 		README.md = README.md
+		test-windows.ps1 = test-windows.ps1
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test.NetCore", "Test.NetCore\Test.NetCore.csproj", "{880999F1-8C2C-4798-8443-19D6CBED3D0F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test.NetCore", "test\Test.NetCore\Test.NetCore.csproj", "{880999F1-8C2C-4798-8443-19D6CBED3D0F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheck.Tests", "LockCheck.Tests\LockCheck.Tests.csproj", "{2970DE55-5A3A-4252-ABF9-9146A759AFD2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheck.Tests", "test\LockCheck.Tests\LockCheck.Tests.csproj", "{2970DE55-5A3A-4252-ABF9-9146A759AFD2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheckTool", "LockCheckTool\LockCheckTool.csproj", "{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheckTool", "src\LockCheckTool\LockCheckTool.csproj", "{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{018E2998-2375-4819-9B5A-554C4F46BC1F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LockCheck.Tests.Client.win-x86", "LockCheck.Tests.Client\win-x86\LockCheck.Tests.Client.win-x86.csproj", "{FFBC0E9D-9DC7-47E4-9E06-81E9DE3F7F6D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCTestTarget.win-x86", "test\LCTestTarget.win-x86\LCTestTarget.win-x86.csproj", "{FFBC0E9D-9DC7-47E4-9E06-81E9DE3F7F6D}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "LockCheck.Tests.Shared", "LockCheck.Tests.Shared\LockCheck.Tests.Shared.shproj", "{F0279C06-9D4E-40D8-A569-3DFEB9926CD2}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "LockCheck.Tests.Shared", "test\LockCheck.Tests.Shared\LockCheck.Tests.Shared.shproj", "{F0279C06-9D4E-40D8-A569-3DFEB9926CD2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LockCheck.Tests.Client.linux-x64", "LockCheck.Tests.Client\linux-x64\LockCheck.Tests.Client.linux-x64.csproj", "{E7A79EE4-7331-4B50-A191-6F16C621F80C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCTestTarget.linux-x64", "test\LCTestTarget.linux-x64\LCTestTarget.linux-x64.csproj", "{E7A79EE4-7331-4B50-A191-6F16C621F80C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LockCheck.Tests.Client.win-x64", "LockCheck.Tests.Client\win-x64\LockCheck.Tests.Client.win-x64.csproj", "{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCTestTarget.win-x64", "test\LCTestTarget.win-x64\LCTestTarget.win-x64.csproj", "{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.NetFx", "test\Test.NetFx\Test.NetFx.csproj", "{59AD5D14-E89C-4C69-A611-15F4F112F6EC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{970DB648-53EB-435B-9A8F-4BFFCA92A54B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -120,24 +125,40 @@ Global
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}.Release|Win32.ActiveCfg = Release|Any CPU
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}.Release|Win32.Build.0 = Release|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Win32.Build.0 = Debug|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Win32.ActiveCfg = Release|Any CPU
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Win32.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{CC3BF24A-0A94-4655-A3EF-A722974F0872} = {970DB648-53EB-435B-9A8F-4BFFCA92A54B}
+		{880999F1-8C2C-4798-8443-19D6CBED3D0F} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{2970DE55-5A3A-4252-ABF9-9146A759AFD2} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
+		{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B} = {970DB648-53EB-435B-9A8F-4BFFCA92A54B}
 		{FFBC0E9D-9DC7-47E4-9E06-81E9DE3F7F6D} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{F0279C06-9D4E-40D8-A569-3DFEB9926CD2} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{E7A79EE4-7331-4B50-A191-6F16C621F80C} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
+		{59AD5D14-E89C-4C69-A611-15F4F112F6EC} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9EFF99EA-5D9E-48B7-A277-E477BD55F517}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{4a4981cf-fa1c-4d38-a39d-8f7ad1356151}*SharedItemsImports = 5
-		LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{e7a79ee4-7331-4b50-a191-6f16c621f80c}*SharedItemsImports = 5
-		LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{f0279c06-9d4e-40d8-a569-3dfeb9926cd2}*SharedItemsImports = 13
-		LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{ffbc0e9d-9dc7-47e4-9e06-81e9de3f7f6d}*SharedItemsImports = 5
+		test\LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{4a4981cf-fa1c-4d38-a39d-8f7ad1356151}*SharedItemsImports = 5
+		test\LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{e7a79ee4-7331-4b50-a191-6f16c621f80c}*SharedItemsImports = 5
+		test\LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{f0279c06-9d4e-40d8-a569-3dfeb9926cd2}*SharedItemsImports = 13
+		test\LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems*{ffbc0e9d-9dc7-47e4-9e06-81e9de3f7f6d}*SharedItemsImports = 5
 	EndGlobalSection
 EndGlobal

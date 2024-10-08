@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using Microsoft.Win32.SafeHandles;
+using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
-using System.Threading;
-using Microsoft.Win32.SafeHandles;
 
 namespace LockCheck.Windows
 {
@@ -46,12 +43,12 @@ namespace LockCheck.Windows
             ref PROCESS_BASIC_INFORMATION processInformation, int processInformationLength, IntPtr returnLength);
 
         [DllImport(NtDll)]
-        internal static extern int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess, 
+        internal static extern int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess,
             PROCESS_INFORMATION_CLASS processInformationClass,
             ref PROCESS_BASIC_INFORMATION_WOW64 processInformation, int processInformationLength, IntPtr returnLength);
 
         [DllImport(NtDll, EntryPoint = "NtQueryInformationProcess")]
-        internal static extern int NtQueryInformationProcessWow64(SafeProcessHandle hProcess, PROCESS_INFORMATION_CLASS processInformationClass, 
+        internal static extern int NtQueryInformationProcessWow64(SafeProcessHandle hProcess, PROCESS_INFORMATION_CLASS processInformationClass,
             ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
 
         internal const int NtQuerySystemProcessInformation = 5;
@@ -269,6 +266,13 @@ namespace LockCheck.Windows
             }
             catch
             {
+                // If the computer is domain joined, and the connection to the domain controller is "broken", you may get this error (sometimes):
+                //
+                // System.ComponentModel.Win32Exception (1789): The trust relationship between this workstation and the primary domain failed.
+                //   at System.Security.Principal.SecurityIdentifier.TranslateToNTAccounts(IdentityReferenceCollection sourceSids, Boolean& someFailed)
+                //   at System.Security.Principal.SecurityIdentifier.Translate(IdentityReferenceCollection sourceSids, Type targetType, Boolean forceSuccess)
+                //   at System.Security.Principal.SecurityIdentifier.Translate(Type targetType)
+                //   at LockCheck.Windows.NativeMethods.GetProcessOwner(SafeProcessHandle handle)
             }
 
             return null;
@@ -283,7 +287,7 @@ namespace LockCheck.Windows
             {
                 tu = Marshal.AllocHGlobal(bufLength);
                 int cb = bufLength;
-                var ret = GetTokenInformation(token, NativeMethods.TOKEN_INFORMATION_CLASS.TokenUser, tu, cb, ref cb);
+                var ret = GetTokenInformation(token, TOKEN_INFORMATION_CLASS.TokenUser, tu, cb, ref cb);
                 if (ret)
                 {
                     var tokUser = (TOKEN_USER)Marshal.PtrToStructure(tu, typeof(TOKEN_USER));

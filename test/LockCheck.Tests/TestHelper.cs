@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -52,27 +53,12 @@ namespace LockCheck.Tests
             {
                 tempDir.Create();
 
-                string clientName;
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    clientName = $"LockCheck.Tests.Client.{(target64Bit ? "win-x64" : "win-x86")}.exe";
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    clientName = $"LockCheck.Tests.Client.linux-x64.exe";
-                }
-                else
-                {
-                    throw new PlatformNotSupportedException();
-                }
-
                 var si = new ProcessStartInfo
                 {
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
-                    FileName = Path.Combine(AppContext.BaseDirectory, clientName),
+                    FileName = GetClientFullPath(target64Bit),
                     Arguments = $"{id} \"{tempDirectoryName}\" {sleep}"
                 };
 
@@ -133,6 +119,52 @@ namespace LockCheck.Tests
             }
         }
 
+        private static string GetClientFullPath(bool target64Bit)
+        {
+            string runtimeIdentifier;
+            string extension;
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                runtimeIdentifier = target64Bit ? "win-x64" : "win-x86";
+                extension = ".exe";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                runtimeIdentifier = "linux-x64";
+                extension = "";
+            }
+            else
+            {
+                throw new PlatformNotSupportedException();
+            }
+
+            // Assume the following directory structure:
+            //
+            //    test\LockCheck.Tests\bin\<Configuration>\<TargetFramework>
+            //    test\LCTestTarget.<RID>\bin\<Configuration>\<TargetFramework>\<RID>\LCTestTarget<EXTENSION>
+            //
+            // Obviously, this would have to change if your directory layout changes (e.g. using ArtifactPath in MSBUILD).
+            // But that would cause pretty obvious test failures and diagnosing them, will end looking here anyway.
+
+            var myDir = AppContext.BaseDirectory.AsSpan().TrimEnd('\\').TrimEnd('/');
+            int pos = myDir.LastIndexOfAny(['/', '\\']);
+            Debug.Assert(pos != -1);
+            var targetFramework = myDir.Slice(pos + 1);
+            myDir = myDir.Slice(0, pos);
+            pos = myDir.LastIndexOfAny(['/', '\\']);
+            var configuration = myDir.Slice(pos + 1);
+
+            string clientFullPath = Path.GetFullPath(
+                Path.Combine(
+                    AppContext.BaseDirectory, // in TargetFramework
+                    "..", // in Configuration
+                    "..", // in bin
+                    "..", // in "LockCheck.Tests"
+                    "..", // in "test"
+                    $@"LCTestTarget.{runtimeIdentifier}\bin\{configuration}\{targetFramework}\{runtimeIdentifier}\LCTestTarget{extension}"));
+            return clientFullPath;
+        }
 
         public static void CreateProcessWithCurrentDirectory_XX(Action<(string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath)> action)
         {

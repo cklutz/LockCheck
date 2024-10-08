@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LockCheck\LockCheck.csproj" />
+    <ProjectReference Include="..\..\src\LockCheck\LockCheck.csproj" />
   </ItemGroup>
 
 </Project>
