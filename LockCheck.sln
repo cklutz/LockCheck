@@ -11,6 +11,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		LICENSE = LICENSE
 		README.md = README.md
 		test-windows.ps1 = test-windows.ps1
+		testEnvironments.json = testEnvironments.json
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test.NetCore", "test\Test.NetCore\Test.NetCore.csproj", "{880999F1-8C2C-4798-8443-19D6CBED3D0F}"

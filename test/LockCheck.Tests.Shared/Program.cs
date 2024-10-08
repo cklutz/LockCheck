@@ -24,7 +24,11 @@ public static class Program
                 using (var writer = new StreamWriter(client))
                 {
                     writer.AutoFlush = true;
+#if NET
                     writer.WriteLine($"READY:{Environment.ProcessId}:{Environment.CurrentDirectory}:{IntPtr.Size * 8}");
+#else
+                    writer.WriteLine($"READY:{System.Diagnostics.Process.GetCurrentProcess().Id}:{Environment.CurrentDirectory}:{IntPtr.Size * 8}");
+#endif
                     if (sleep > 0)
                     {
                         Console.WriteLine($"Server signaled, sleeping for {sleep * 1000} seconds ...");

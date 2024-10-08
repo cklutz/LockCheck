@@ -25,13 +25,13 @@ namespace LockCheck.Linux
             //  7: POSIX ADVISORY  READ  3548 08:01:7865567 1826 2335
             //  8: OFDLCK ADVISORY  WRITE -1 08:01:8713209 128 191
 
+#if NETFRAMEWORK
             string[] fields = line.Split(new [] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-            // Actual number of fields in /proc/locks might be larger, but we only need
-            // up to field #5 (INODE)
+            // Actual number of fields in /proc/locks might be larger, but we only need up to field #5 (INODE)
             if (fields.Length < 6)
             {
-                throw new IOException($"Unexpected number of fields {fields.Length} in '/proc/locks'");
+                throw new IOException($"Unexpected number of fields {fields.Length} in '/proc/locks' ({line})");
             }
 
             int offset = 0; // Always the "ID" (e.g. "1:")
@@ -51,15 +51,55 @@ namespace LockCheck.Linux
 
             if (!int.TryParse(fields[offset++], out int processId))
             {
-                throw new IOException($"Invalid process ID '{fields[offset]}' in '/proc/locks'");
+                throw new IOException($"Invalid process ID '{fields[offset]}' in '/proc/locks' ({line})");
             }
 
             result.ProcessId = processId;
 
-            if (!InodeInfo.TryParse(fields[offset++], out var inodeInfo))
+            if (!InodeInfo.TryParse(fields[offset++].AsSpan(), out var inodeInfo))
             {
-                throw new IOException($"Invalid inode '{fields[offset]}' specification in '/proc/locks'");
+                throw new IOException($"Invalid inode '{fields[offset]}' specification in '/proc/locks' ({line})");
             }
+
+#else
+            var span = line.AsSpan();
+            int count = span.Count(' ') + 1;
+            if (count < 6)
+            {
+                throw new IOException($"Unexpected number of fields {count} in '/proc/locks' ({line})");
+            }
+
+            Span<Range> ranges = count < 128 ? stackalloc Range[count] : new Range[count];
+            int num = MemoryExtensions.Split(span, ranges, ' ', StringSplitOptions.RemoveEmptyEntries);
+
+            int offset = 0;
+            offset++; // Ignore first item (always the "ID" (e.g. "1:")
+            if (span[ranges[offset]] == "->")
+            {
+                // "Blocked" optional marker
+                offset++;
+            }
+
+            var result = new LockInfo
+            {
+                LockType = span[ranges[offset++]].ToString(),
+                LockMode = span[ranges[offset++]].ToString(),
+                LockAccess = span[ranges[offset++]].ToString()
+            };
+
+            if (!int.TryParse(span[ranges[offset++]], out int processId))
+            {
+                throw new IOException($"Invalid process ID '{span[ranges[offset]]}' in '/proc/locks' ({line})");
+            }
+
+            result.ProcessId = processId;
+
+            if (!InodeInfo.TryParse(span[ranges[offset++]], out var inodeInfo))
+            {
+                throw new IOException($"Invalid Inode '{span[ranges[offset]]}' specification in '/proc/locks' ({line})");
+            }
+
+#endif
 
             result.InodeInfo = inodeInfo;
 
