@@ -14,7 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		testEnvironments.json = testEnvironments.json
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test.NetCore", "test\Test.NetCore\Test.NetCore.csproj", "{880999F1-8C2C-4798-8443-19D6CBED3D0F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test.ConsoleApp", "test\Test.ConsoleApp\Test.ConsoleApp.csproj", "{880999F1-8C2C-4798-8443-19D6CBED3D0F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheck.Tests", "test\LockCheck.Tests\LockCheck.Tests.csproj", "{2970DE55-5A3A-4252-ABF9-9146A759AFD2}"
 EndProject
@@ -29,8 +29,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCTestTarget.linux-x64", "test\LCTestTarget.linux-x64\LCTestTarget.linux-x64.csproj", "{E7A79EE4-7331-4B50-A191-6F16C621F80C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCTestTarget.win-x64", "test\LCTestTarget.win-x64\LCTestTarget.win-x64.csproj", "{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.NetFx", "test\Test.NetFx\Test.NetFx.csproj", "{59AD5D14-E89C-4C69-A611-15F4F112F6EC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{970DB648-53EB-435B-9A8F-4BFFCA92A54B}"
 EndProject
@@ -126,18 +124,6 @@ Global
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}.Release|Win32.ActiveCfg = Release|Any CPU
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}.Release|Win32.Build.0 = Release|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Win32.ActiveCfg = Debug|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Debug|Win32.Build.0 = Debug|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Win32.ActiveCfg = Release|Any CPU
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC}.Release|Win32.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -151,7 +137,6 @@ Global
 		{F0279C06-9D4E-40D8-A569-3DFEB9926CD2} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{E7A79EE4-7331-4B50-A191-6F16C621F80C} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
-		{59AD5D14-E89C-4C69-A611-15F4F112F6EC} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9EFF99EA-5D9E-48B7-A277-E477BD55F517}
