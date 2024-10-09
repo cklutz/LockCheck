@@ -29,5 +29,9 @@ jobs:
         dotnet-version: 8.0.*
     - name: Build
       run: dotnet build --framework net8.0 --configuration $env:Configuration
+      env:
+        Configuration: ${{ matrix.configuration }}
     - name: Test
       run: dotnet test --no-build --verbosity normal --framework net8.0 --configuration $env:Configuration
+      env:
+        Configuration: ${{ matrix.configuration }}
