@@ -29,13 +29,10 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
-    - name: Setup .NET (32 bit)
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: ${{ matrix.dotnet-version }}
-      env:
-        PROCESSOR_ARCHITEW6432: x86
-        PROCESSOR_ARCHITECTURE: x86
+    - name: List Runtimes 64 bit
+      run: cmd /c dir "C:\Program Files\dotnet\shared"
+    - name: List Runtimes 32 bit
+      run: cmd /c dir "C:\Program Files (x86)\dotnet\shared"
     - name: Build
       run: dotnet build -f ${{ matrix.tfm }} -c ${{ matrix.configuration }}
     - name: Test
