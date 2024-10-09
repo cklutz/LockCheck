@@ -10,7 +10,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitignore = .gitignore
 		LICENSE = LICENSE
 		README.md = README.md
-		test-windows.ps1 = test-windows.ps1
 		testEnvironments.json = testEnvironments.json
 	EndProjectSection
 EndProject
@@ -21,6 +20,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheckTool", "src\LockCheckTool\LockCheckTool.csproj", "{AAB30D88-20E8-5AF2-E863-11F6D5BCCF0B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{018E2998-2375-4819-9B5A-554C4F46BC1F}"
+	ProjectSection(SolutionItems) = preProject
+		test\test-docker-linux.ps1 = test\test-docker-linux.ps1
+		test\test-windows.ps1 = test\test-windows.ps1
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCTestTarget.win-x86", "test\LCTestTarget.win-x86\LCTestTarget.win-x86.csproj", "{FFBC0E9D-9DC7-47E4-9E06-81E9DE3F7F6D}"
 EndProject
