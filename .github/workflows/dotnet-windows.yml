@@ -1,6 +1,8 @@
 name: Windows
 
 on:
+  # Allow to use "gh.exe workflow run Windows --ref <branchname>" to trigger this workflow for arbitrary branches.
+  workflow_dispatch:
   push:
     branches: [ master ]
   pull_request:
@@ -8,20 +10,53 @@ on:
 
 jobs:
   build:
-    env:
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+        dotnet-version: ['8.0.x']
+        tfm: ['net8.0', 'net481']
 
     runs-on: windows-latest
 
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+
+    - name: Setup .NET (64 bit)
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: 8.0.*
+        dotnet-version: ${{ matrix.dotnet-version }}
+
+    #- name: List Runtimes 64 bit
+    #  run: cmd /c "C:\Program Files\dotnet\dotnet.exe" --list-runtimes
+    #- name: List Runtimes 32 bit
+    #  run: cmd /c "C:\Program Files (x86)\dotnet\dotnet.exe" --list-runtimes
+
     - name: Build
-      run: dotnet build --framework net8.0
+      run: >
+        dotnet build 
+        --framework ${{ matrix.tfm }}
+        --configuration ${{ matrix.configuration }}
+
     - name: Test
-      run: dotnet test --no-build --verbosity normal --framework net8.0
+      run: >
+        dotnet test
+        --no-build
+        --framework ${{ matrix.tfm }} 
+        --verbosity normal
+        --configuration ${{ matrix.configuration }} 
+        --logger trx 
+        --results-directory "TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}"
+
+    - name: Upload dotnet test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.tfm }}-${{ matrix.configuration }}
+        path: TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}
+      # Use always() to always run this step to publish test results when there are test failures
+      if: ${{ always() }}

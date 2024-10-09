@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net481</TargetFrameworks>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Christian Klutz</Authors>
+    <Company />
+    <Copyright>Copyright © Christian Klutz 2020</Copyright>
+    <Description>Provides APIs to find processes that are locking files or directories</Description>
+    <RepositoryUrl>https://github.com/cklutz/LockCheck</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>file locks</PackageTags>
+    <PackageProjectUrl>https://github.com/cklutz/LockCheck</PackageProjectUrl>
+    <!-- All options: https://github.com/dotnet/designs/blob/master/accepted/diagnostics/debugging-with-symbols-and-sources.md -->
+    <DebugType>Embedded</DebugType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CA1031;CA1303;CA1416;CA1801;CA1716;NU5105</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Principal.Windows" Version="5.0.0" />
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.6.143" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+  </ItemGroup>
+
+</Project>

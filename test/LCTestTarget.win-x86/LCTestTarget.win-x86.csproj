@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net481</TargetFrameworks>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+    <AssemblyName>LCTestTarget</AssemblyName>
+    <IsPackable>false</IsPackable>
+    
+    <!--
+    Add the runtime files to the executable's output directory.
+    We do this mainly for GitHub actions: currently, the setup-dotnet
+    action does not allow to explicitly specify installing the x86
+    version of the runtime. While it still *seems* to be present in
+    build images. The versions between the (explicitly) installed
+    x64 and the x86 version don't always match. For example, I have
+    seen a case, where "dotnet.exe - -list-runtimes" from
+    "C:\Program Files\dotnet" lists 8.0.10 as newest, but from
+    "C:\Program Files (x86\dotnet" lists 8.0.8 as newest. This then
+    causes test run failures, because this executable cannot be run.
+    
+    For "simplicty" we make this thing self contained and be done
+    with it.
+    -->
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <Import Project="..\LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems" Label="Shared" />
+
+</Project>

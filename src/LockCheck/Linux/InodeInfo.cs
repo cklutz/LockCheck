@@ -1,0 +1,41 @@
+﻿using System;
+using System.Globalization;
+
+namespace LockCheck.Linux
+{
+    internal readonly struct InodeInfo
+    {
+        public static bool TryParse(ReadOnlySpan<char> field, out InodeInfo value)
+        {
+#if NETFRAMEWORK
+            throw new PlatformNotSupportedException();
+#else
+            int count = field.Count(':') + 1;
+            Span<Range> ranges = count < 128 ? stackalloc Range[count] : new Range[count];
+            int num = MemoryExtensions.Split(field, ranges, ':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (num < 3 ||
+                !int.TryParse(field[ranges[0]], NumberStyles.HexNumber, null, out int major) ||
+                !int.TryParse(field[ranges[1]], NumberStyles.HexNumber, null, out int minor) ||
+                !long.TryParse(field[ranges[2]], NumberStyles.Integer, null, out long number))
+            {
+                value = default;
+                return false;
+            }
+
+            value = new InodeInfo(major, minor, number);
+            return true;
+#endif
+        }
+
+        private InodeInfo(int majorDeviceId, int minorDeviceId, long iNodeNumber)
+        {
+            MajorDeviceId = majorDeviceId;
+            MinorDeviceId = minorDeviceId;
+            INodeNumber = iNodeNumber;
+        }
+
+        public readonly int MajorDeviceId { get; }
+        public readonly int MinorDeviceId { get; }
+        public readonly long INodeNumber { get; }
+    }
+}

@@ -1,28 +1,26 @@
 # LockCheck
-Uses platform APIs to find processes locking one or multiple files.
 
-[![Nuget](https://img.shields.io/nuget/v/LockCheck)](https://www.nuget.org/packages/LockCheck/)
+Uses platform APIs to find processes locking one or multiple files or directories.
 
-## Builds
-
-[![Desktop](https://github.com/cklutz/LockCheck/workflows/Desktop/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3ADesktop)
-
-[![Windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
-
-[![Ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
-
+[![MIT License](https://img.shields.io/github/license/cklutz/LockCheck?color=%230b0&style=flat-square)](https://github.com/cklutz/LockCheck/blob/master/LICENSE) 
+[![nuget](https://img.shields.io/nuget/v/LockCheck?style=flat-square)](https://www.nuget.org/packages/LockCheck/)
+[![windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
+[![ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
 
 ### Platforms
 
 ## Windows
 
 On the Windows platform there are two possible engines to provide the lock information:
+
 * Windows RestartManager API (default)
-* NTDLL functions (using `LockManagerFeatures.UseLowLevelApi`)
+* Windows NTDLL functions (using `LockManagerFeatures.UseLowLevelApi`)
 
 The RestartManager API has the advantage of being a documented interface, but
 the disadvantage that it might introduce a rather big overhead. For example,
-The backing [`RmRegisterResources`](https://docs.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmregisterresources) Win32-API is rather expensive.
+The backing [`RmRegisterResources`](https://docs.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmregisterresources)
+Win32-API is rather expensive, which is why you should probably resort to using `UseLowLevelApi` until
+it is promoted to be default in a future version.
 
 Since the "who locks the file" information is potentially highly volatile, and the
 locking processing might already be gone when you start looking for it using this
@@ -31,6 +29,10 @@ library after you got an exception, this might be too much. YMMV.
 Also note, that the RestartManager can only have a maximum of 64 restart manager
 sessions per user session - this might not be a real world issue, as the API is
 usually only used by installers and setup applications, but again, YMMV.
+
+Finally, note that if the calling process does not have the required permissions to
+access information about other processes (that might hold a lock), these processes
+are simply not returned. In other words, it is a best effort approach.
 
 ## Linux
 
@@ -50,22 +52,33 @@ If you have any improvements / PRs please let me know.
 
 ## Getting lock information on demand
 
+### Basic Usage
+
 To get the lockers of a file, if any, use the `LockManager.GetLockingProcessInfos()` function.
 
 ```
-foreach (var processInfo in LockManager.GetLockingProcessInfods("c:\\temp\\foo.xlsx"))
+foreach (var processInfo in LockManager.GetLockingProcessInfos("c:\\temp\\foo.xlsx"))
 {
     // Do something with the information.
 }
 ```
 
-## Enriching Exceptions with Lock Information ##
+### Inspect processes current working directories
 
-The method ExceptionUtils.RethrowWithLockingInformation() can be used to enrich exceptions
+On Windows if you attempt to delete a directory that is the current working directory of a
+process, this will result in "access denied".
+`LockManager` can also check paths (directories) that are passed to `GetLockingProcessInfos()`
+on whether they are the current working directory of any process, and if so, include them
+in the result.  To enable this feature you need to pass the `LockManagerFeatures.CheckDirectories`
+flag.
+
+## Enriching Exceptions with Lock Information
+
+The `ExceptionUtils.RethrowWithLockingInformation()` method can be used to enrich exceptions
 with lock information, if available.
 
-Here is a phony example. The inner Open call causes an IOException, because the outer
-Open call already opened the file exclusively (albeit in the same process, but that
+Here is a phony example. The inner `File.Open()` call causes an `IOException`, because the outer
+`File.Open()` call already opened the file exclusively (albeit in the same process, but that
 doesn't matter for the cause of the example):
 
 ```
@@ -86,11 +99,11 @@ static void Test()
 }
 ```
 
-If the RethrowWithLockingInformation() method could deduce any lockers, it will create an IOException
+If the `RethrowWithLockingInformation()` method could deduce any lockers, it will create an `IOException`
 that has the original exception as inner exception, but additionally includes lock information in the
 message text.
 
-If the RethrowWithLockingInformation() method could not deduce any lockers or the original exception
+If the `RethrowWithLockingInformation()` method could not deduce any lockers or the original exception
 did not signify a locking/sharing violation, it will return false and NOT raise any exception. In this
 case, as show above, you should simply rethrow the original exception.
 
@@ -106,7 +119,7 @@ A view notes:
 Personally, I use this helper only in situations where I know locking issues are "common", for example
 when attempting to recursively delete a directory tree, etc.
 
-Finally, here is the exception output without the RethrowWithLockingInformation() call:
+Finally, here is the exception output without the `RethrowWithLockingInformation()` call:
 
      System.IO.IOException: The process cannot access the file 'C:\temp\foo.txt' because it is being used by another process.
         at System.IO.__Error.WinIOError(Int32 errorCode, String maybeFullPath)
@@ -131,20 +144,19 @@ And this is it, with that information included:
 
 ### Examples
 
-Two example identical example applications are included: one for .NET Framework 4.7.2+ and one for .NET Core 3.1+.
-
+A standalone tool (`LockCheckTool`) is included and is available for both .NET 8+, and .NET Framework (4.8.1+).
 You can test the functionality as follows:
 
 * Open/create a file "C:\temp\foo.xlsx" in Microsoft Excel - you can use any other application that actually locks a file, of course.
 * Run the following command: 
 
-       Test.NetFx.exe c:\temp\foo.xlsx
+       LockCheckTool.exe c:\temp\foo.xlsx
   
-* The ouput should be like
+* The output should something like this
 
         Process ID        : 1296
-        Process Start Time: Saturday, 24th October 2015 16:17:58
+        Process Start Time: Saturday, 24th October 2024 16:17:58
         Application Type  : MainWindow
         Application Status: Running
         Application Name  : Microsoft Excel
-        TS Session ID     : 1
+        Session ID        : 1

@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net481</TargetFrameworks>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <AssemblyName>LCTestTarget</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <Import Project="..\LockCheck.Tests.Shared\LockCheck.Tests.Shared.projitems" Label="Shared" />
+
+</Project>

@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net481</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.6.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.6.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LockCheck\LockCheck.csproj" />
+    
+    <!-- These need to exist in their respective output folder, but we don't reference the output assemblies here. -->
+    <ProjectReference Include="..\LCTestTarget.win-x86\LCTestTarget.win-x86.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\LCTestTarget.win-x64\LCTestTarget.win-x64.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\LCTestTarget.linux-x64\LCTestTarget.linux-x64.csproj" ReferenceOutputAssembly="false" Private="false" Condition="'$(TargetFramework)' != 'net481'" />
+  </ItemGroup>
+
+</Project>
