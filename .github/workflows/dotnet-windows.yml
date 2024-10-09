@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         configuration: [Debug, Release]
+        dotnet-version: ['8.0.x']
 
     runs-on: windows-latest
 
@@ -26,12 +27,19 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 8.0.*
+        dotnet-version: ${{ matrix.dotnet-version }}
     - name: Build
-      run: dotnet build --framework net8.0 --configuration $env:Configuration
+      run: dotnet build --configuration $env:Configuration
       env:
         Configuration: ${{ matrix.configuration }}
     - name: Test
-      run: dotnet test --no-build --verbosity normal --framework net8.0 --configuration $env:Configuration
+      run: dotnet test --no-build --verbosity diag --configuration $env:Configuration
       env:
         Configuration: ${{ matrix.configuration }}
+    - name: Upload dotnet test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.dotnet-version }}
+        path: TestResults-${{ matrix.dotnet-version }}
+      # Use always() to always run this step to publish test results when there are test failures
+      if: ${{ always() }}
