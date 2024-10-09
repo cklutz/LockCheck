@@ -25,10 +25,17 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
-    - name: Setup .NET
+    - name: Setup .NET (64 bit)
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
+    - name: Setup .NET (32 bit)
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+      env:
+        PROCESSOR_ARCHITEW6432: x86
+        PROCESSOR_ARCHITECTURE: x86
     - name: Build
       run: dotnet build -f ${{ matrix.tfm }} -c ${{ matrix.configuration }}
     - name: Test
