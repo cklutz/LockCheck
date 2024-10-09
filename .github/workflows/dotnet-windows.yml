@@ -30,9 +30,9 @@ jobs:
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
     - name: List Runtimes 64 bit
-      run: cmd /c dir "C:\Program Files\dotnet\shared"
+      run: cmd /c dir "C:\Program Files\dotnet"
     - name: List Runtimes 32 bit
-      run: cmd /c dir "C:\Program Files (x86)\dotnet\shared"
+      run: cmd /c dir "C:\Program Files (x86)\dotnet"
     - name: Build
       run: dotnet build -f ${{ matrix.tfm }} -c ${{ matrix.configuration }}
     - name: Test
