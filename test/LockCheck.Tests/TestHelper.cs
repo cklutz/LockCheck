@@ -45,6 +45,7 @@ namespace LockCheck.Tests
             string id = Guid.NewGuid().ToString("N");
             string tempDirectoryName = Path.Combine(Path.GetTempPath(), id + ".test");
             int sleep = 0; // forever
+            int wait = 20; // seconds
 
             Process process = null;
             var tempDir = new DirectoryInfo(tempDirectoryName);
@@ -97,13 +98,14 @@ namespace LockCheck.Tests
                 }
 
                 process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
 
                 using (var server = new NamedPipeServerStream(id))
                 {
                     var connectionTask = server.WaitForConnectionAsync();
-                    if (!connectionTask.Wait(20_000))
+                    if (!connectionTask.Wait(wait * 1000))
                     {
-                        Assert.Fail("Giving up after 20 secs");
+                        Assert.Fail($"Test target has not signaled ready after {wait} seconds. Test target process with ID {process.Id} {(process.HasExited ? "has already exited" : "appears to be still running")}.");
                     }
                     else
                     {
