@@ -1,22 +1,65 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace LockCheck
 {
     internal class Program
     {
+        private static int Usage()
+        {
+            Console.Error.WriteLine(@"Usage: {0} [OPTIONS] PATH [PATH ...]    
+
+Options:
+
+-d, --include-cwd    Check if PATH is the current working directory for a process.
+--use-rm             Use RestartManager API (Windows only).
+", typeof(Program).Assembly.GetName().Name);
+
+            return -1;
+        }
+
         private static int Main(string[] args)
         {
             try
             {
-                if (args.Length == 0)
+                var features = LockManagerFeatures.UseLowLevelApi;
+
+                int i;
+                for (i = 0; i < args.Length; i++)
                 {
-                    Console.Error.WriteLine("Usage: {0} FILE [FILE ...]",
-                        typeof(Program).Assembly.GetName().Name);
+                    if (args[i] == "--include-cwd" || args[i] == "-d")
+                    {
+                        features |= LockManagerFeatures.CheckDirectories;
+                    }
+                    else if (args[i].Equals("--use-rm"))
+                    {
+                        features &= ~LockManagerFeatures.UseLowLevelApi;
+                    }
+                    else if (args[i] == "--help" || args[i] == "-h" || args[i] == "-?")
+                    {
+                        return Usage();
+                    }
+                    else if (args[i].StartsWith("--") && args[i].Length > 2)
+                    {
+                        Console.Error.WriteLine($"Unknown option '{args[0]}'. Run `{typeof(Program).Assembly.GetName().Name} --help` for more information.");
+                        return -1;
+                    }
+                    else
+                    {
+                        // Not an option or only "--".
+                        break;
+                    }
                 }
 
-                var infos = LockManager.GetLockingProcessInfos(args);
+                args = args.Skip(i).ToArray();
+                if (args.Length == 0)
+                {
+                    return Usage();
+                }
+
+                var infos = LockManager.GetLockingProcessInfos(args, features);
                 if (!infos.Any())
                 {
                     Console.WriteLine("No locking processes found.");
@@ -35,6 +78,16 @@ namespace LockCheck
                     Console.WriteLine("Application Name  : {0}", p.ApplicationName);
                     Console.WriteLine("Path              : {0}", p.ExecutableFullPath);
                     Console.WriteLine("Process Start Time: {0}", p.StartTime.ToString("F"));
+                    Console.WriteLine("Owner             : {0}", p.Owner);
+                    Console.WriteLine("SessionId         : {0}", p.SessionId);
+
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    {
+                        Console.WriteLine("LockAccess        : {0}", p.LockAccess);
+                        Console.WriteLine("LockMode          : {0}", p.LockMode);
+                        Console.WriteLine("LockType          : {0}", p.LockType);
+                    }
+
                     first = false;
                 }
             }

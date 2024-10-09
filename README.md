@@ -1,10 +1,11 @@
 # LockCheck
+
 Uses platform APIs to find processes locking one or multiple files.
 
 [![MIT License](https://img.shields.io/github/license/cklutz/LockCheck?color=%230b0&style=flat-square)](https://github.com/cklutz/LockCheck/blob/master/LICENSE) 
 [![nuget](https://img.shields.io/nuget/v/LockCheck?style=flat-square)](https://www.nuget.org/packages/LockCheck/)
-[![windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg?branch=master)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
-[![ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg?branch=master)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
+[![windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
+[![ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
 
 ### Platforms
 
@@ -44,16 +45,27 @@ If you have any improvements / PRs please let me know.
 
 ## Getting lock information on demand
 
+### Basic Ussage
+
 To get the lockers of a file, if any, use the `LockManager.GetLockingProcessInfos()` function.
 
 ```
-foreach (var processInfo in LockManager.GetLockingProcessInfods("c:\\temp\\foo.xlsx"))
+foreach (var processInfo in LockManager.GetLockingProcessInfos("c:\\temp\\foo.xlsx"))
 {
     // Do something with the information.
 }
 ```
 
-## Enriching Exceptions with Lock Information ##
+### Inspect processes current working directories
+
+On Windows if you attempt to delete a directory that is the current working directory of a
+process, this will result in "access denied".
+`LockManager` can also check paths (directories) that are passed to `GetLockingProcessInfos()`
+on whether they are the current working directory of any process, and if so, include them
+in the result.  To enable this feature you need to pass the `LockManagerFeatures.CheckDirectories`
+flag.
+
+## Enriching Exceptions with Lock Information
 
 The method ExceptionUtils.RethrowWithLockingInformation() can be used to enrich exceptions
 with lock information, if available.
@@ -125,19 +137,19 @@ And this is it, with that information included:
 
 ### Examples
 
-Two example identical example applications are included: one for .NET Framework 4.7.2+ and one for .NET Core 3.1+.
+Two example applications are included: one for .NET Framework 4.8.1+ and one for .NET (8 or newer).
 
 You can test the functionality as follows:
 
 * Open/create a file "C:\temp\foo.xlsx" in Microsoft Excel - you can use any other application that actually locks a file, of course.
 * Run the following command: 
 
-       Test.NetFx.exe c:\temp\foo.xlsx
+       Test.ConsoleApp.exe c:\temp\foo.xlsx
   
 * The ouput should be like
 
         Process ID        : 1296
-        Process Start Time: Saturday, 24th October 2015 16:17:58
+        Process Start Time: Saturday, 24th October 2024 16:17:58
         Application Type  : MainWindow
         Application Status: Running
         Application Name  : Microsoft Excel
