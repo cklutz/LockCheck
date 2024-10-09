@@ -124,14 +124,16 @@ namespace LockCheck
             return ToString();
         }
 
-        public static void Format(StringBuilder sb, IEnumerable<ProcessInfo> lockers, IEnumerable<string> fileNames, int? max = null)
+        public static void Format(StringBuilder sb, IEnumerable<ProcessInfo> lockers, IEnumerable<string> fileNames, int? maxProcesses = null)
         {
             if (lockers == null || !lockers.Any())
                 return;
 
             int count = lockers.Count();
+            int max = maxProcesses == -1 || !maxProcesses.HasValue ? int.MaxValue : maxProcesses.Value;
+
             sb.AppendFormat("File {0} locked by: ", string.Join(", ", fileNames));
-            foreach (var locker in lockers.Take(max ?? Int32.MaxValue))
+            foreach (var locker in lockers.Take(max))
             {
                 sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, owner={locker.Owner}, started={locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
             }

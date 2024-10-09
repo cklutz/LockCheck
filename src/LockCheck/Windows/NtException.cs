@@ -2,7 +2,7 @@
 
 namespace LockCheck.Windows
 {
-    public class NtException : Win32Exception
+    internal class NtException : Win32Exception
     {
         public NtException(uint status, string message)
             : base(message)

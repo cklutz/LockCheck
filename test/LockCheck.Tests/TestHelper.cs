@@ -195,7 +195,7 @@ namespace LockCheck.Tests
             return clientFullPath;
         }
 
-        public static void CreateProcessWithCurrentDirectory_XX(Action<(string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath)> action)
+        public static void CreateShellWithCurrentDirectory(Action<(string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath)> action)
         {
             string tempDirectoryName = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
             const string sentinel = "TEST_READY";

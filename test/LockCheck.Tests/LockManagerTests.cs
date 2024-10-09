@@ -55,8 +55,6 @@ namespace LockCheck.Tests
                     Assert.IsNotNull(processInfo);
                     Assert.AreEqual(args.ProcessId, processInfo.ProcessId);
                     Assert.AreEqual(args.SessionId, processInfo.SessionId);
-                    Console.WriteLine("Process API >> " + args.ProcessStartTime.ToString("O"));
-                    Console.WriteLine("Ours        >> " + processInfo.StartTime.ToString("O"));
                     Assert.AreEqual(args.ProcessStartTime, processInfo.StartTime);
                     Assert.AreEqual(args.ExecutableFullPath.ToLowerInvariant(), processInfo.ExecutableFullPath?.ToLowerInvariant());
                     // Might contain domain, computername, etc. in SAM form

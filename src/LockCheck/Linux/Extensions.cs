@@ -3,7 +3,7 @@ using System.IO;
 
 namespace LockCheck.Linux
 {
-    public static class Extensions
+    internal static class Extensions
     {
         public static bool IsFileLocked(IOException exception)
         {

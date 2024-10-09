@@ -9,7 +9,7 @@ using static LockCheck.Windows.NativeMethods;
 namespace LockCheck.Windows
 {
     [DebuggerDisplay("{HasError} {ProcessId} {ExecutableFullPath}")]
-    public class Peb : IHasErrorState
+    internal class Peb : IHasErrorState
     {
         private bool _hasError;
 #if DEBUG

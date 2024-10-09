@@ -1,21 +1,28 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace LockCheck
 {
     internal class Program
     {
+        private static readonly string s_name = typeof(Program).Assembly.GetName().Name;
+
         private static int Usage()
         {
-            Console.Error.WriteLine(@"Usage: {0} [OPTIONS] PATH [PATH ...]    
+            Console.Error.WriteLine(@"
+Usage:
+  {0} [options] <PATH>...
+
+Arguments:
+  <PATH>   The path or paths to check for.
 
 Options:
-
--d, --include-cwd    Check if PATH is the current working directory for a process.
---use-rm             Use RestartManager API (Windows only).
-", typeof(Program).Assembly.GetName().Name);
+  -d, --include-cwd    Check if a <PATH> is the current working directory for a process.
+      --use-rm         Use RestartManager API (Windows only).
+", s_name);
 
             return -1;
         }
@@ -43,7 +50,7 @@ Options:
                     }
                     else if (args[i].StartsWith("--") && args[i].Length > 2)
                     {
-                        Console.Error.WriteLine($"Unknown option '{args[0]}'. Run `{typeof(Program).Assembly.GetName().Name} --help` for more information.");
+                        Console.Error.WriteLine($"Unknown option '{args[0]}'. Run `{s_name} --help` for more information.");
                         return -1;
                     }
                     else

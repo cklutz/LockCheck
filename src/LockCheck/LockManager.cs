@@ -6,8 +6,25 @@ using LockCheck.Windows;
 
 namespace LockCheck
 {
+    /// <summary>
+    /// Retrieves information about locked files and directories.
+    /// </summary>
     public static class LockManager
     {
+        /// <summary>
+        /// Attempt to find processes that lock the specified paths.
+        /// </summary>
+        /// <param name="paths">The paths to check.</param>
+        /// <param name="features">Optional features</param>
+        /// <returns>
+        /// A list of processes that lock at least one of the specified paths.
+        /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="paths"/> is <c>null</c>.</exception>
+        /// <exception cref="PlatformNotSupportedException">
+        /// The current platform is not supported. This exception is only thrown, when the <paramref name="features"/>
+        /// includes the <see cref="LockManagerFeatures.ThrowIfNotSupported"/> flag. Otherwise the function will
+        /// simply return an empty enumeration when a platform is not supported.
+        /// </exception>
         public static IEnumerable<ProcessInfo> GetLockingProcessInfos(string[] paths, LockManagerFeatures features = default)
         {
             if (paths == null)
