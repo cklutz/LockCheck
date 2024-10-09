@@ -1,16 +1,10 @@
 # LockCheck
 Uses platform APIs to find processes locking one or multiple files.
 
-[![Nuget](https://img.shields.io/nuget/v/LockCheck)](https://www.nuget.org/packages/LockCheck/)
-
-## Builds
-
-[![Desktop](https://github.com/cklutz/LockCheck/workflows/Desktop/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3ADesktop)
-
-[![Windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
-
-[![Ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
-
+[![MIT License](https://img.shields.io/github/license/cklutz/LockCheck?color=%230b0&style=flat-square)](https://github.com/cklutz/LockCheck/blob/master/LICENSE) 
+[![nuget](https://img.shields.io/nuget/v/LockCheck?style=flat-square)](https://www.nuget.org/packages/LockCheck/)
+[![windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg?branch=master)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
+[![ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg?branch=master)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
 
 ### Platforms
 
