@@ -13,6 +13,7 @@ jobs:
       matrix:
         configuration: [Debug, Release]
         dotnet-version: ['8.0.x']
+        tfm: ['net8.0']
 
     runs-on: windows-latest
 
@@ -29,13 +30,13 @@ jobs:
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
     - name: Build
-      run: dotnet build --configuration ${{ matrix.configuration }}
+      run: dotnet build -f ${{ matrix.tfm }} -c ${{ matrix.configuration }}
     - name: Test
-      run: dotnet test --no-build --verbosity diag --configuration ${{ matrix.configuration }} --logger trx --results-directory "TestResults-${{ matrix.dotnet-version }}-${{ matrix.configuration }}"
+      run: dotnet test --no-build -f ${{ matrix.tfm }} -d "TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}\diag.log" -v d -c ${{ matrix.configuration }} -l trx --results-directory "TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}"
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ matrix.dotnet-version }}-${{ matrix.configuration }}
-        path: TestResults-${{ matrix.dotnet-version }}-${{ matrix.configuration }}
+        name: test-results-${{ matrix.tfm }}-${{ matrix.configuration }}
+        path: TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}
       # Use always() to always run this step to publish test results when there are test failures
       if: ${{ always() }}
