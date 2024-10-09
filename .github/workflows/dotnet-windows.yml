@@ -9,13 +9,18 @@ on:
 
 jobs:
   build:
-    env:
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
 
     runs-on: windows-latest
 
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
       with:
         fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
     - name: Setup .NET
@@ -23,6 +28,6 @@ jobs:
       with:
         dotnet-version: 8.0.*
     - name: Build
-      run: dotnet build --framework net8.0
+      run: dotnet build --framework net8.0 --configuration $env:Configuration
     - name: Test
-      run: dotnet test --no-build --verbosity normal --framework net8.0
+      run: dotnet test --no-build --verbosity normal --framework net8.0 --configuration $env:Configuration
