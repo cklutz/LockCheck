@@ -66,8 +66,8 @@ jobs:
 
     - name: Update CodeCoverage badge
       run: |
-        chmod +rx .github\workflows\update_gist.sh
-        .github\workflows\update_gist.sh 9bd61dea93406219c4985641039c4e2f $GITHUB_WORKSPACE/coveragereport/badge_combined.svg
+        chmod +rx .github/workflows/update_gist.sh
+        .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f $GITHUB_WORKSPACE/coveragereport/badge_combined.svg
       shell: bash
       # run: >
       #   gh gist edit 9bd61dea93406219c4985641039c4e2f
