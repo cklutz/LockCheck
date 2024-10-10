@@ -69,6 +69,9 @@ jobs:
         chmod +rx .github/workflows/update_gist.sh
         .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f $GITHUB_WORKSPACE/coveragereport/badge_combined.svg
       shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
+        
       # run: >
       #   gh gist edit 9bd61dea93406219c4985641039c4e2f
       #   -f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}.svg
