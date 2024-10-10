@@ -70,7 +70,7 @@ jobs:
         -f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}
         ${{ github.workspace }}/coveragereport/badge_combined.svg
       env:
-        GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
 
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
