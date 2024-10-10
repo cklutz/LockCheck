@@ -25,9 +25,6 @@ namespace LockCheck.Linux
             //  7: POSIX ADVISORY  READ  3548 08:01:7865567 1826 2335
             //  8: OFDLCK ADVISORY  WRITE -1 08:01:8713209 128 191
 
-#if NETFRAMEWORK
-            throw new PlatformNotSupportedException();
-#else
             var span = line.AsSpan();
             int count = span.Count(' ') + 1;
             if (count < 6)
@@ -68,7 +65,6 @@ namespace LockCheck.Linux
             result.InodeInfo = inodeInfo;
 
             return result;
-#endif
         }
     }
 }

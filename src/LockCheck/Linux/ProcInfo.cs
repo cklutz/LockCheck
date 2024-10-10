@@ -2,8 +2,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using static LockCheck.Linux.NativeMethods;
 
 namespace LockCheck.Linux
@@ -11,10 +9,11 @@ namespace LockCheck.Linux
     [DebuggerDisplay("{HasError} {ProcessId} {ExecutableFullPath}")]
     internal class ProcInfo : IHasErrorState
     {
-        private bool _hasError;
 #if DEBUG
+#pragma warning disable IDE0052
         private string _errorStack;
         private Exception _errorCause;
+#pragma warning restore IDE0052
 #endif
 
         public int ProcessId { get; private set; }
@@ -24,17 +23,20 @@ namespace LockCheck.Linux
         public string ExecutableFullPath { get; private set; }
         public string Owner { get; private set; }
         public DateTime StartTime { get; private set; }
-
-        public bool HasError => _hasError;
+        public bool HasError { get; private set; }
 
         public void SetError(Exception ex = null)
         {
-            if (!_hasError)
+            if (!HasError)
             {
-                _hasError = true;
+                HasError = true;
 #if DEBUG
-                _errorStack = Environment.StackTrace;
-                _errorCause = ex;
+                if (Debugger.IsAttached)
+                {
+                    // Support manual inspection at a later point
+                    _errorStack = Environment.StackTrace;
+                    _errorCause = ex;
+                }
 #endif
             }
         }
@@ -98,10 +100,6 @@ namespace LockCheck.Linux
 
         private static string GetCurrentDirectory(int pid, IHasErrorState he)
         {
-#if NETFRAMEWORK
-            he.SetError();
-            return null;
-#else
             try
             {
                 return Directory.ResolveLinkTarget($"/proc/{pid}/cwd", true)?.FullName;
@@ -111,15 +109,10 @@ namespace LockCheck.Linux
                 he.SetError(ex);
                 return null;
             }
-#endif
         }
 
         private static string GetExecutablePath(int pid, IHasErrorState he)
         {
-#if NETFRAMEWORK
-            he.SetError();
-            return null;
-#else
             try
             {
                 return File.ResolveLinkTarget($"/proc/{pid}/exe", true)?.FullName;
@@ -129,15 +122,10 @@ namespace LockCheck.Linux
                 he.SetError(ex);
                 return null;
             }
-#endif
         }
 
         private static int GetSessionId(int pid, IHasErrorState he)
         {
-#if NETFRAMEWORK
-            he.SetError();
-            return default;
-#else
             try
             {
                 string fileName = $"/proc/{pid}/stat";
@@ -155,20 +143,15 @@ namespace LockCheck.Linux
                 he.SetError(ex);
                 return default;
             }
-#endif
         }
 
         private static unsafe DateTime GetStartTime(int pid, IHasErrorState he)
         {
-#if NETFRAMEWORK
-            he.SetError();
-            return default;
-#else
             try
             {
                 // Apparently it is impossible to fully recreate the time that Process.StartTime calculates in 
                 // the background. It uses clock_gettime(CLOCK_BOOTTIME) (see https://github.com/dotnet/runtime/pull/83966)
-                // internally and calcuates the start time relative to that using /proc/<pid>/stat.
+                // internally and calculates the start time relative to that using /proc/<pid>/stat.
                 // However we shave the yack, we get a different time than what Process.StartTime would return.
                 // Debugging has it, that this is due to the fact that we get a different "boot time" (later time).
                 // I'm not sure if that is a bug in the CLR or just a fact of life on Linux.
@@ -181,10 +164,8 @@ namespace LockCheck.Linux
                 he.SetError(ex);
                 return default;
             }
-#endif
         }
 
-#if NET
         private static ReadOnlySpan<char> GetField(ReadOnlySpan<char> content, char delimiter, int index)
         {
             int count = content.Count(delimiter) + 1;
@@ -196,6 +177,5 @@ namespace LockCheck.Linux
             }
             return content[ranges[index]];
         }
-#endif
     }
 }

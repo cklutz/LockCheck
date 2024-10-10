@@ -13,7 +13,9 @@ namespace LockCheck.Windows
         public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string> directories)
         {
             if (paths == null)
+            {
                 throw new ArgumentNullException(nameof(paths));
+            }
 
             var result = new HashSet<ProcessInfo>();
 
@@ -34,9 +36,11 @@ namespace LockCheck.Windows
         private static void GetLockingProcessInfo(string path, HashSet<ProcessInfo> result)
         {
             if (path == null)
+            {
                 throw new ArgumentNullException(nameof(path));
+            }
 
-            var bufferPtr = IntPtr.Zero;
+            IntPtr bufferPtr = IntPtr.Zero;
             var statusBlock = new IO_STATUS_BLOCK();
 
             try
@@ -50,11 +54,12 @@ namespace LockCheck.Windows
                         return;
                     }
 
-                    uint bufferSize = 0x4000;
+                    uint bufferSize = 16384;
                     bufferPtr = Marshal.AllocHGlobal((int)bufferSize);
 
                     uint status;
-                    while ((status = NtQueryInformationFile(handle, ref statusBlock, bufferPtr, bufferSize, FILE_INFORMATION_CLASS.FileProcessIdsUsingFileInformation)) == STATUS_INFO_LENGTH_MISMATCH)
+                    while ((status = NtQueryInformationFile(handle, ref statusBlock, bufferPtr, bufferSize,
+                        FILE_INFORMATION_CLASS.FileProcessIdsUsingFileInformation)) == STATUS_INFO_LENGTH_MISMATCH)
                     {
                         Marshal.FreeHGlobal(bufferPtr);
                         bufferPtr = IntPtr.Zero;
@@ -74,7 +79,7 @@ namespace LockCheck.Windows
                     //        ULONG_PTR ProcessIdList[1];
                     //    }
 
-                    var readBuffer = bufferPtr;
+                    IntPtr readBuffer = bufferPtr;
                     int numEntries = Marshal.ReadInt32(readBuffer); // NumberOfProcessIdsInList
                     readBuffer += IntPtr.Size;
 
@@ -95,7 +100,7 @@ namespace LockCheck.Windows
             }
         }
 
-        private static Exception GetException(uint status, string apiName, string message)
+        private static NtException GetException(uint status, string apiName, string message)
         {
             int res = RtlNtStatusToDosError(status);
             if (res == ERROR_MR_MID_NOT_FOUND)
@@ -164,7 +169,7 @@ namespace LockCheck.Windows
                     bufferHandle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
 
                     status = NtQuerySystemInformation(
-                        NtQuerySystemProcessInformation,
+                        SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
                         bufferHandle.AddrOfPinnedObject(),
                         bufferSize,
                         out int requiredSize);
@@ -194,7 +199,7 @@ namespace LockCheck.Windows
 
                 while (true)
                 {
-                    IntPtr currentPtr = (IntPtr)((long)dataPtr + totalOffset);
+                    nint currentPtr = checked((IntPtr)(dataPtr.ToInt64() + totalOffset));
                     var pi = new SYSTEM_PROCESS_INFORMATION();
 
                     Marshal.PtrToStructure(currentPtr, pi);
@@ -242,9 +247,7 @@ namespace LockCheck.Windows
                     int newSize = existingBufferSize * 2;
                     if (newSize < existingBufferSize)
                     {
-                        // In reality, we should never overflow.
-                        // Adding the code here just in case it happens.
-                        throw new OutOfMemoryException();
+                        throw new OutOfMemoryException($"Existing buffer size {existingBufferSize:N0} bytes, attempting to allocate {newSize:N0} would overflow.");
                     }
                     return newSize;
                 }
@@ -252,10 +255,10 @@ namespace LockCheck.Windows
                 {
                     // allocating a few more kilo bytes just in case there are some new process
                     // kicked in since new call to NtQuerySystemInformation
-                    int newSize = requiredSize + 1024 * 10;
+                    int newSize = requiredSize + (1024 * 10);
                     if (newSize < requiredSize)
                     {
-                        throw new OutOfMemoryException();
+                        throw new OutOfMemoryException($"Required buffer size {requiredSize:N0} bytes, attempting to allocate {newSize:N0} would overflow.");
                     }
                     return newSize;
                 }

@@ -1,15 +1,37 @@
-﻿using Microsoft.Win32.SafeHandles;
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
+
+#pragma warning disable IDE1006 // Naming Styles - off here, because we want to use native names
 
 namespace LockCheck.Windows
 {
-    internal static class NativeMethods
+    internal static partial class NativeMethods
     {
         private const string NtDll = "ntdll.dll";
+        private const string RestartManagerDll = "rstrtmgr.dll";
+        private const string AdvApi32Dll = "advapi32.dll";
+        private const string KernelDll = "kernel32.dll";
+
+        internal const int ERROR_SEM_TIMEOUT = 121;
+        internal const int ERROR_INSUFFICIENT_BUFFER = 122;
+        internal const int ERROR_BAD_ARGUMENTS = 160;
+        internal const int ERROR_MAX_SESSIONS_REACHED = 353;
+        internal const int ERROR_WRITE_FAULT = 29;
+        internal const int ERROR_OUTOFMEMORY = 14;
+        internal const int ERROR_MORE_DATA = 234;
+        internal const int ERROR_ACCESS_DENIED = 5;
+        internal const int ERROR_INVALID_HANDLE = 6;
+        internal const int ERROR_SHARING_VIOLATION = 32;
+        internal const int ERROR_LOCK_VIOLATION = 33;
+        internal const int ERROR_CANCELLED = 1223;
+        internal const int ERROR_MR_MID_NOT_FOUND = 317;
+
+        internal const uint STATUS_SUCCESS = 0;
+        internal const uint STATUS_INFO_LENGTH_MISMATCH = 0xC0000004;
 
         [StructLayout(LayoutKind.Sequential, Pack = 0)]
         internal struct IO_STATUS_BLOCK
@@ -25,11 +47,10 @@ namespace LockCheck.Windows
             public IntPtr ProcessIdList;
         }
 
-        internal enum FILE_INFORMATION_CLASS { FileProcessIdsUsingFileInformation = 47 }
-
-        [DllImport(NtDll)]
-        internal static extern uint NtQueryInformationFile(SafeFileHandle fileHandle, ref IO_STATUS_BLOCK IoStatusBlock,
-            IntPtr pInfoBlock, uint length, FILE_INFORMATION_CLASS fileInformation);
+        internal enum FILE_INFORMATION_CLASS
+        {
+            FileProcessIdsUsingFileInformation = 47
+        }
 
         internal enum PROCESS_INFORMATION_CLASS
         {
@@ -37,38 +58,71 @@ namespace LockCheck.Windows
             ProcessWow64Information = 26
         }
 
+        internal enum SYSTEM_INFORMATION_CLASS
+        {
+            SystemProcessInformation = 5
+        }
+
+#if NET
+        [LibraryImport(NtDll)]
+        internal static partial uint NtQueryInformationFile(SafeFileHandle fileHandle, ref IO_STATUS_BLOCK IoStatusBlock,
+            IntPtr pInfoBlock, uint length, FILE_INFORMATION_CLASS fileInformation);
+#else
+        [DllImport(NtDll)]
+        internal static extern uint NtQueryInformationFile(SafeFileHandle fileHandle, ref IO_STATUS_BLOCK IoStatusBlock,
+            IntPtr pInfoBlock, uint length, FILE_INFORMATION_CLASS fileInformation);
+#endif
+
+#if NET
+        [LibraryImport(NtDll)]
+        internal static partial uint NtQueryInformationProcess(SafeProcessHandle hProcess, 
+            PROCESS_INFORMATION_CLASS processInformationClass,
+            ref PROCESS_BASIC_INFORMATION processInformation, int processInformationLength, IntPtr returnLength);
+#else
         [DllImport(NtDll)]
         internal static extern uint NtQueryInformationProcess(SafeProcessHandle hProcess,
             PROCESS_INFORMATION_CLASS processInformationClass,
             ref PROCESS_BASIC_INFORMATION processInformation, int processInformationLength, IntPtr returnLength);
+#endif
 
+#if NET
+        [LibraryImport(NtDll)]
+        internal static partial int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess,
+            PROCESS_INFORMATION_CLASS processInformationClass,
+            ref PROCESS_BASIC_INFORMATION_WOW64 processInformation, int processInformationLength, IntPtr returnLength);
+#else
         [DllImport(NtDll)]
         internal static extern int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess,
             PROCESS_INFORMATION_CLASS processInformationClass,
             ref PROCESS_BASIC_INFORMATION_WOW64 processInformation, int processInformationLength, IntPtr returnLength);
+#endif
 
+#if NET
+        [LibraryImport(NtDll, EntryPoint = "NtQueryInformationProcess")]
+        internal static partial int NtQueryInformationProcessWow64(SafeProcessHandle hProcess, PROCESS_INFORMATION_CLASS processInformationClass,
+            ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
+#else
         [DllImport(NtDll, EntryPoint = "NtQueryInformationProcess")]
         internal static extern int NtQueryInformationProcessWow64(SafeProcessHandle hProcess, PROCESS_INFORMATION_CLASS processInformationClass,
             ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
+#endif
 
-        internal const int NtQuerySystemProcessInformation = 5;
-
+#if NET
+        [LibraryImport(NtDll)]
+        internal static partial int NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS systemInformationClass, IntPtr dataPtr, int size, out int returnedSize);
+#else
         [DllImport(NtDll)]
-        internal static extern int NtQuerySystemInformation(int query, IntPtr dataPtr, int size, out int returnedSize);
+        internal static extern int NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS systemInformationClass, IntPtr dataPtr, int size, out int returnedSize);
+#endif
 
+#if NET
+        [LibraryImport(NtDll)]
+        internal static partial int RtlNtStatusToDosError(uint status);
+#else
         [DllImport(NtDll)]
         internal static extern int RtlNtStatusToDosError(uint status);
+#endif
 
-        internal const int ERROR_MR_MID_NOT_FOUND = 317;
-
-        internal const uint STATUS_SUCCESS = 0;
-        internal const uint STATUS_INFO_LENGTH_MISMATCH = 0xC0000004;
-
-        // ----------------------------------------------------------------------------------------------
-
-        private const string RestartManagerDll = "rstrtmgr.dll";
-        private const string AdvApi32Dll = "advapi32.dll";
-        private const string KernelDll = "kernel32.dll";
 
         [DllImport(RestartManagerDll, CharSet = CharSet.Unicode)]
         internal static extern int RmRegisterResources(uint pSessionHandle,
@@ -109,20 +163,9 @@ namespace LockCheck.Windows
 
         internal const int RM_INVALID_SESSION = -1;
         internal const int RM_INVALID_PROCESS = -1;
+
         internal const int CCH_RM_MAX_APP_NAME = 255;
         internal const int CCH_RM_MAX_SVC_NAME = 63;
-        internal const int ERROR_SEM_TIMEOUT = 121;
-        internal const int ERROR_BAD_ARGUMENTS = 160;
-        internal const int ERROR_MAX_SESSIONS_REACHED = 353;
-        internal const int ERROR_WRITE_FAULT = 29;
-        internal const int ERROR_OUTOFMEMORY = 14;
-        internal const int ERROR_MORE_DATA = 234;
-        internal const int ERROR_ACCESS_DENIED = 5;
-        internal const int ERROR_INVALID_HANDLE = 6;
-        internal const int ERROR_SHARING_VIOLATION = 32;
-        internal const int ERROR_LOCK_VIOLATION = 33;
-        internal const int ERROR_CANCELLED = 1223;
-
 
         internal static readonly int RM_SESSION_KEY_LEN = Guid.Empty.ToByteArray().Length; // 16-byte
         internal static readonly int CCH_RM_SESSION_KEY = RM_SESSION_KEY_LEN * 2;
@@ -178,12 +221,23 @@ namespace LockCheck.Windows
             public DateTime GetStartTime() => DateTime.FromFileTime((((long)Process.ProcessStartTime.dwHighDateTime) << 32) | Process.ProcessStartTime.dwLowDateTime);
         }
 
+#if NET
+        [LibraryImport(AdvApi32Dll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool OpenProcessToken(SafeProcessHandle processHandle, int desiredAccess, out SafeAccessTokenHandle tokenHandle);
+#else
         [DllImport(AdvApi32Dll, SetLastError = true)]
-        internal static extern bool OpenProcessToken(SafeProcessHandle processHandle,
-            int desiredAccess, out SafeAccessTokenHandle tokenHandle);
+        internal static extern bool OpenProcessToken(SafeProcessHandle processHandle, int desiredAccess, out SafeAccessTokenHandle tokenHandle);
+#endif
 
+#if NET
+        [LibraryImport(AdvApi32Dll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool GetTokenInformation(SafeAccessTokenHandle hToken, TOKEN_INFORMATION_CLASS tokenInfoClass, IntPtr tokenInformation, int tokeInfoLength, ref int reqLength);
+#else
         [DllImport(AdvApi32Dll, CharSet = CharSet.Auto, SetLastError = true)]
         internal static extern bool GetTokenInformation(SafeAccessTokenHandle hToken, TOKEN_INFORMATION_CLASS tokenInfoClass, IntPtr tokenInformation, int tokeInfoLength, ref int reqLength);
+#endif
 
         internal const int PROCESS_TERMINATE = 0x0001;
         internal const int PROCESS_CREATE_THREAD = 0x0002;
@@ -198,24 +252,62 @@ namespace LockCheck.Windows
         internal const int PROCESS_VM_READ = 0x10;
         internal const int PROCESS_VM_WRITE = 0x20;
 
+#if NET
+        [LibraryImport(KernelDll, SetLastError = true)]
+        private static partial SafeProcessHandle OpenProcess(int dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
+#else
         [DllImport(KernelDll, SetLastError = true)]
         private static extern SafeProcessHandle OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+#endif
 
-        internal static SafeProcessHandle OpenProcessLimited(int pid)
-        {
-            return OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-        }
+        internal static SafeProcessHandle OpenProcessLimited(int pid) => OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        internal static SafeProcessHandle OpenProcessRead(int pid) => OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
 
-        internal static SafeProcessHandle OpenProcessRead(int pid)
-        {
-            return OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
-        }
-
+#if NET
+        [LibraryImport(KernelDll, SetLastError = true, EntryPoint = "QueryFullProcessImageNameW")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static unsafe partial bool QueryFullProcessImageName(SafeProcessHandle hProcess, int dwFlags, char* lpExeName, ref int lpdwSize);
+#else
         [DllImport(KernelDll, SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern bool QueryFullProcessImageName(SafeProcessHandle hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
+#endif
 
-        internal static string GetProcessImagePath(SafeProcessHandle hProcess)
+        internal static unsafe string GetProcessImagePath(SafeProcessHandle hProcess, bool throwOnError = false)
         {
+#if NET
+            const int stackSize = 260; // Actual Windows MAX_PATH value. But paths can get larger (up to 32k).
+            int bufferSize = stackSize;
+            Span<char> buffer = stackalloc char[bufferSize];
+
+            while (true)
+            {
+                fixed (char* bufferPtr = buffer)
+                {
+                    bool ret = QueryFullProcessImageName(hProcess, 0, bufferPtr, ref bufferSize);
+                    if (!ret)
+                    {
+                        int code = Marshal.GetLastWin32Error();
+                        if (code != ERROR_INSUFFICIENT_BUFFER)
+                        {
+                            if (!throwOnError)
+                            {
+                                return null;
+                            }
+
+                            throw new System.ComponentModel.Win32Exception(code);
+                        }
+
+                        // Buffer too small. Double size; from now on need heap alloc to conserve stack space.
+                        bufferSize *= 2;
+                        buffer = new char[bufferSize];
+                    }
+                    else
+                    {
+                        return buffer.Slice(0, bufferSize).Trim('\0').ToString();
+                    }
+                }
+            }
+#else
             var sb = new StringBuilder(4096);
             int size = sb.Capacity;
             if (QueryFullProcessImageName(hProcess, 0, sb, ref size))
@@ -223,10 +315,17 @@ namespace LockCheck.Windows
                 return sb.ToString();
             }
             return null;
+#endif
         }
 
+#if NET
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetProcessTimes(SafeProcessHandle handle, out long creation, out long exit, out long kernel, out long user);
+#else
         [DllImport(KernelDll, CharSet = CharSet.Auto, SetLastError = true)]
         private static extern bool GetProcessTimes(SafeProcessHandle handle, out long creation, out long exit, out long kernel, out long user);
+#endif
 
         internal static DateTime GetProcessStartTime(SafeProcessHandle handle)
         {
@@ -238,8 +337,14 @@ namespace LockCheck.Windows
             return DateTime.MinValue;
         }
 
+#if NET
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool ProcessIdToSessionId(int dwProcessId, out int sessionId);
+#else
         [DllImport(KernelDll, SetLastError = true)]
         private static extern bool ProcessIdToSessionId(int dwProcessId, out int sessionId);
+#endif
 
         internal static int GetProcessSessionId(int dwProcessId)
         {
@@ -325,6 +430,17 @@ namespace LockCheck.Windows
         }
 
 
+#if NET
+        [LibraryImport(KernelDll, SetLastError = true, StringMarshalling = StringMarshalling.Utf16, EntryPoint = "CreateFileW")]
+        private static partial SafeFileHandle CreateFile(
+            string lpFileName,
+            int dwDesiredAccess,
+            FileShare dwShareMode,
+            IntPtr lpSecurityAttributes,
+            FileMode dwCreationDisposition,
+            int dwFlagsAndAttributes,
+            IntPtr hTemplateFile);
+#else
         [DllImport(KernelDll, SetLastError = true, CharSet = CharSet.Auto, BestFitMapping = false)]
         private static extern SafeFileHandle CreateFile(
             string lpFileName,
@@ -334,6 +450,8 @@ namespace LockCheck.Windows
             FileMode dwCreationDisposition,
             int dwFlagsAndAttributes,
             IntPtr hTemplateFile);
+
+#endif
 
         internal static SafeFileHandle GetFileHandle(string name)
         {
@@ -430,6 +548,40 @@ namespace LockCheck.Windows
             internal long OtherTransferCount;
         }
 #pragma warning restore 169
+
+#if NET
+        [LibraryImport(KernelDll, SetLastError = true)]
+        internal static partial SafeProcessHandle GetCurrentProcess();
+
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool IsWow64Process(SafeProcessHandle hProcess, [MarshalAs(UnmanagedType.Bool)] out bool wow64Process);
+
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref IntPtr lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref UNICODE_STRING_32 lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref UNICODE_STRING lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, [MarshalAs(UnmanagedType.LPWStr)] string lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+
+        [LibraryImport(KernelDll, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static partial bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref uint data, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
+#else
         [DllImport(KernelDll, SetLastError = true)]
         internal static extern SafeProcessHandle GetCurrentProcess();
 
@@ -461,11 +613,26 @@ namespace LockCheck.Windows
         [DllImport(KernelDll, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref uint data, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
-
+#endif
 
         // for 32-bit process in a 64-bit OS only
 
+#if NET
+        [LibraryImport(NtDll)]
+        internal static partial int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, IntPtr data, long dwSize, IntPtr lpNumberOfBytesRead);
 
+        [LibraryImport(NtDll)]
+        internal static partial int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref long lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [LibraryImport(NtDll)]
+        internal static partial int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref UNICODE_STRING_WOW64 lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [LibraryImport(NtDll)]
+        internal static partial int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, [MarshalAs(UnmanagedType.LPWStr)] string lpBuffer, long dwSize, IntPtr lpNumberOfBytesRead);
+
+        [LibraryImport(NtDll)]
+        internal static partial int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref uint data, long dwSize, IntPtr lpNumberOfBytesRead);
+#else
         [DllImport(NtDll)]
         internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, IntPtr data, long dwSize, IntPtr lpNumberOfBytesRead);
 
@@ -480,7 +647,7 @@ namespace LockCheck.Windows
 
         [DllImport(NtDll)]
         internal static extern int NtWow64ReadVirtualMemory64(SafeProcessHandle hProcess, long lpBaseAddress, ref uint data, long dwSize, IntPtr lpNumberOfBytesRead);
-
+#endif
         [StructLayout(LayoutKind.Sequential)]
         internal struct PROCESS_BASIC_INFORMATION
         {
@@ -499,7 +666,7 @@ namespace LockCheck.Windows
             public short MaximumLength;
             public IntPtr Buffer;
 
-            public string GetLpBuffer() => new string('\0', Length / 2);
+            public string GetEmptyBuffer() => new('\0', Length / 2);
         }
 
         // for 32-bit process in a 64-bit OS only
@@ -522,7 +689,7 @@ namespace LockCheck.Windows
             public short MaximumLength;
             public long Buffer;
 
-            public string GetLpBuffer() => new string('\0', Length / 2);
+            public string GetEmptyBuffer() => new('\0', Length / 2);
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -532,8 +699,7 @@ namespace LockCheck.Windows
             public short MaximumLength;
             public int Buffer;
 
-            public string GetLpBuffer() => new string('\0', Length / 2);
+            public string GetEmptyBuffer() => new('\0', Length / 2);
         }
-
     }
 }
