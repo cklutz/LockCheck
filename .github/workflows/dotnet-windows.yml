@@ -28,14 +28,9 @@ jobs:
         fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
 
     - name: Setup .NET (64 bit)
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
-
-    #- name: List Runtimes 64 bit
-    #  run: cmd /c "C:\Program Files\dotnet\dotnet.exe" --list-runtimes
-    #- name: List Runtimes 32 bit
-    #  run: cmd /c "C:\Program Files (x86)\dotnet\dotnet.exe" --list-runtimes
 
     - name: Build
       run: >
