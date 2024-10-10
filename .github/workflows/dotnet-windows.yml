@@ -69,6 +69,8 @@ jobs:
         gh gist edit 9bd61dea93406219c4985641039c4e2f
         -f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}
         ${{ github.workspace }}/coveragereport/badge_combined.svg
+      env:
+        GH_TOKEN: ${{ github.token }}
 
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
