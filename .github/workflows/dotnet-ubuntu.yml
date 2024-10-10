@@ -57,7 +57,8 @@ jobs:
         reporttypes: 'MarkdownSummaryGithub'
 
     - name: Add coverage report to summary
-      run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMAMRY
+      run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+      shell: bash
 
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
