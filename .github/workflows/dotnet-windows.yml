@@ -61,7 +61,7 @@ jobs:
         targetdir: '${{ github.workspace }}/coveragereport'
         reporttypes: 'MarkdownSummaryGithub'
         assemblyfilters: '-*.Tests;-LCTestTarget*'
-        filefilters: '-*Linux*'
+        classfilters: '-*.Linux.*'
         title: 'Results for ${{ matrix.tfm }}, ${{ matrix.configuration }}'
         tag: '${{ github.run_number }}_${{ github.run_id }}'
   
