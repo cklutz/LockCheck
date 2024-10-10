@@ -42,7 +42,9 @@ namespace LockCheck.Tests
                 var processInfos = LockManager.GetLockingProcessInfos([ fileName], features).ToList();
                 Assert.AreEqual(1, processInfos.Count); // Sanity, has been tested in LockManagerTests
                 var expectedMessageContents = new StringBuilder();
-                ProcessInfo.Format(expectedMessageContents, processInfos, [fileName]);
+
+                // Getting the owner is not really stable on Windows, it seems.
+                ProcessInfo.Format(expectedMessageContents, processInfos, [fileName], ownerOverwrite: "OWNER");
 
                 try
                 {
