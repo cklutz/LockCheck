@@ -55,7 +55,7 @@ jobs:
         reports: '${{ github.workspace }}/TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}/**/*.cobertura.xml'
         targetdir: '${{ github.workspace }}/coveragereport'
         reporttypes: 'MarkdownSummaryGithub'
-        assemblyfilter: '-*.Tests;-LCTestTarget.*'
+        assemblyfilters: '-*.Tests;-LCTestTarget.*'
 
     - name: Add coverage report to summary
       run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
