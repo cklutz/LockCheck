@@ -9,9 +9,6 @@ namespace LockCheck.Linux
     {
         internal static Dictionary<(int, DateTime), ProcessInfo> GetProcessesByWorkingDirectory(List<string> directories)
         {
-#if NETFRAMEWORK
-            throw new PlatformNotSupportedException();
-#else
             var result = new Dictionary<(int, DateTime), ProcessInfo>();
 
             var options = new EnumerationOptions
@@ -42,7 +39,6 @@ namespace LockCheck.Linux
             }
 
             return result;
-#endif
         }
 
         public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string> directories)

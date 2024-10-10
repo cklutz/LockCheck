@@ -1,13 +1,12 @@
 using System;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading;
+
+#pragma warning disable IDE1006 // Naming Styles - off here, because we want to use native names
 
 namespace LockCheck.Linux
 {
-    internal static class NativeMethods
+    internal static partial class NativeMethods
     {
         public const int EAGAIN = 11; // Resource unavailable, try again (same value as EWOULDBLOCK),
         public const int EWOULDBLOCK = EAGAIN; // Operation would block.
@@ -43,7 +42,9 @@ namespace LockCheck.Linux
                 const int BufLen = Passwd.InitialBufferSize;
                 byte* stackBuf = stackalloc byte[BufLen];
                 if (TryGetUserName(uid, stackBuf, BufLen, out userName))
+                {
                     return userName;
+                }
 
                 int lastBufLen = BufLen;
                 while (true)
@@ -53,7 +54,9 @@ namespace LockCheck.Linux
                     fixed (byte* buf = &heapBuf[0])
                     {
                         if (TryGetUserName(uid, buf, heapBuf.Length, out userName))
+                        {
                             return userName;
+                        }
                     }
                 }
             }
@@ -111,8 +114,8 @@ namespace LockCheck.Linux
             internal uint UserFlags;
         }
 
-        [DllImport(SystemNative, EntryPoint = "SystemNative_Stat", SetLastError = true)]
-        private static extern int Stat(string pathname, out FileStatus status);
+        [LibraryImport(SystemNative, EntryPoint = "SystemNative_Stat", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+        private static partial int Stat(string pathname, out FileStatus status);
 
         internal unsafe struct Passwd
         {
@@ -127,8 +130,8 @@ namespace LockCheck.Linux
             internal byte* Shell;
         }
 
-        [DllImport(SystemNative, EntryPoint = "SystemNative_GetPwUidR", SetLastError = false)]
-        internal static extern unsafe int GetPwUidR(uint uid, out Passwd pwd, byte* buf, int bufLen);
+        [LibraryImport(SystemNative, EntryPoint = "SystemNative_GetPwUidR", SetLastError = false)]
+        internal static unsafe partial int GetPwUidR(uint uid, out Passwd pwd, byte* buf, int bufLen);
 
         // ---END-----------------------------------------------------------------------------------
     }

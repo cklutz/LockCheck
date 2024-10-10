@@ -7,9 +7,6 @@ namespace LockCheck.Linux
     {
         public static bool TryParse(ReadOnlySpan<char> field, out InodeInfo value)
         {
-#if NETFRAMEWORK
-            throw new PlatformNotSupportedException();
-#else
             int count = field.Count(':') + 1;
             Span<Range> ranges = count < 128 ? stackalloc Range[count] : new Range[count];
             int num = MemoryExtensions.Split(field, ranges, ':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -24,7 +21,6 @@ namespace LockCheck.Linux
 
             value = new InodeInfo(major, minor, number);
             return true;
-#endif
         }
 
         private InodeInfo(int majorDeviceId, int minorDeviceId, long iNodeNumber)

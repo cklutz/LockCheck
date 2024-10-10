@@ -8,7 +8,7 @@
   <PropertyGroup>
     <Authors>Christian Klutz</Authors>
     <Company />
-    <Copyright>Copyright © Christian Klutz 2020</Copyright>
+    <Copyright>Copyright © Christian Klutz $([System.DateTime]::Now.Year)</Copyright>
     <Description>Provides APIs to find processes that are locking files or directories</Description>
     <RepositoryUrl>https://github.com/cklutz/LockCheck</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -25,14 +25,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <!-- Only include Linux sources, when targeting .NET "core". .NET Framework is not
+  supported on Linux anyway, and this safes us some #if/#endif juggling in the Linux
+  sources. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
+    <Compile Remove="Linux/**/*.cs"/>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Security.Principal.Windows" Version="5.0.0" />
     <PackageReference Include="Nerdbank.GitVersioning" Version="3.6.143" PrivateAssets="all" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
-    <PackageReference Include="System.Memory" Version="4.5.5" />
   </ItemGroup>
 
 </Project>

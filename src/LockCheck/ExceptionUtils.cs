@@ -1,9 +1,11 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+#if NETFRAMEWORK
+using System.Reflection;
+#endif
 
 namespace LockCheck
 {
@@ -31,10 +33,12 @@ namespace LockCheck
             {
                 return Windows.Extensions.IsFileLocked(exception);
             }
+#if NET
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 return Linux.Extensions.IsFileLocked(exception);
             }
+#endif
 
             return false;
         }
@@ -109,11 +113,10 @@ namespace LockCheck
         {
             if (fileNames?.Length > 0)
             {
-                var ioEx = ex as IOException;
-                if (ioEx != null && ioEx.IsFileLocked())
+                if (ex is IOException ioEx && ioEx.IsFileLocked())
                 {
                     // It is a race to get the lockers, while they are still there. So do this as early as possible.
-                    var lockers = LockManager.GetLockingProcessInfos(fileNames, features).ToList();
+                    var lockers = LockManager.GetLockingProcessInfos(fileNames, features);
 
                     if (lockers.Any())
                     {
@@ -129,7 +132,7 @@ namespace LockCheck
 #if NETFRAMEWORK
                         s_setErrorCodeMethod.Value?.Invoke(exception, [ex.HResult]);
 #endif
-#if NETCOREAPP
+#if NET
                         exception.HResult = ex.HResult;
 #endif
 

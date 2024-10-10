@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using LockCheck.Linux;
 using LockCheck.Windows;
+#if NET
+using LockCheck.Linux;
+#endif
+
 
 namespace LockCheck
 {
@@ -31,11 +34,10 @@ namespace LockCheck
                 throw new ArgumentNullException(nameof(paths));
 
             HashSet<ProcessInfo> processInfos = [];
+            List<string> directories = (features & LockManagerFeatures.CheckDirectories) != 0 ? [] : null;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                List<string> directories = (features & LockManagerFeatures.CheckDirectories) != 0 ? [] : null;
-
                 if ((features & LockManagerFeatures.UseLowLevelApi) != 0)
                 {
                     processInfos = NtDll.GetLockingProcessInfos(paths, ref directories);
@@ -54,9 +56,10 @@ namespace LockCheck
                     }
                 }
             }
+#if NET
+            // Linux sources are only build when building for .NET, not for .NET Framework.
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                List<string> directories = (features & LockManagerFeatures.CheckDirectories) != 0 ? [] : null;
 
                 processInfos = ProcFileSystem.GetLockingProcessInfos(paths, ref directories);
 
@@ -69,6 +72,7 @@ namespace LockCheck
                     }
                 }
             }
+#endif
             else
             {
                 if ((features & LockManagerFeatures.ThrowIfNotSupported) != 0)

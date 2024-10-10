@@ -24,7 +24,7 @@ namespace LockCheck.Tests
                 Assert.AreEqual(process.StartTime, processInfos[0].StartTime);
                 Assert.IsNotNull(processInfos[0].ApplicationName);
                 Assert.AreEqual(process.MainModule.FileName.ToLowerInvariant(), processInfos[0].ExecutableFullPath?.ToLowerInvariant());
-                // Might contain domain, computername, etc. in SAM form
+                // Might contain domain, computer name, etc. in SAM form
                 StringAssert.Contains(processInfos[0].Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
                 // Might have an .exe suffix or not.
                 StringAssert.Contains(processInfos[0].ExecutableName?.ToLowerInvariant(), process.ProcessName.ToLowerInvariant());
@@ -57,7 +57,7 @@ namespace LockCheck.Tests
                     Assert.AreEqual(args.SessionId, processInfo.SessionId);
                     Assert.AreEqual(args.ProcessStartTime, processInfo.StartTime);
                     Assert.AreEqual(args.ExecutableFullPath.ToLowerInvariant(), processInfo.ExecutableFullPath?.ToLowerInvariant());
-                    // Might contain domain, computername, etc. in SAM form
+                    // Might contain domain, computer name, etc. in SAM form
                     StringAssert.Contains(processInfo.Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
                     // Might have an .exe suffix or not.
                     StringAssert.Contains(processInfo.ExecutableName?.ToLowerInvariant(), args.ProcessName.ToLowerInvariant());

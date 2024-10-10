@@ -76,8 +76,8 @@ namespace LockCheck
 
         public override int GetHashCode()
         {
-            var h1 = ProcessId.GetHashCode();
-            var h2 = StartTime.GetHashCode();
+            int h1 = ProcessId.GetHashCode();
+            int h2 = StartTime.GetHashCode();
             return ((h1 << 5) + h1) ^ h2;
         }
 
@@ -133,7 +133,7 @@ namespace LockCheck
             int max = maxProcesses == -1 || !maxProcesses.HasValue ? int.MaxValue : maxProcesses.Value;
 
             sb.AppendFormat("File {0} locked by: ", string.Join(", ", fileNames));
-            foreach (var locker in lockers.Take(max))
+            foreach (ProcessInfo locker in lockers.Take(max))
             {
                 sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, owner={locker.Owner}, started={locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
             }
