@@ -28,7 +28,7 @@ jobs:
         fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
 
     - name: Setup .NET (64 bit)
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
 
@@ -55,6 +55,7 @@ jobs:
         reports: '${{ github.workspace }}/TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}/**/*.cobertura.xml'
         targetdir: '${{ github.workspace }}/coveragereport'
         reporttypes: 'MarkdownSummaryGithub'
+        assemblyfilter: '-*.Tests;-LCTestTarget.*'
 
     - name: Add coverage report to summary
       run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
