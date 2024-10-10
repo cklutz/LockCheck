@@ -54,7 +54,7 @@ jobs:
       with:
         reports: '${{ github.workspace }}/TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}/**/*.cobertura.xml'
         targetdir: '${{ github.workspace }}/coveragereport'
-        reporttypes: 'MarkdownSummaryGithub'
+        reporttypes: 'Html;Html_Dark;Cobertura;MarkdownSummaryGithub;Badges'
         assemblyfilters: '-*.Tests;-LCTestTarget*'
         classfilters: '-*.Linux.*'
         title: 'Results for ${{ matrix.tfm }}, ${{ matrix.configuration }}'
