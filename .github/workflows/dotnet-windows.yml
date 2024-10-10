@@ -48,10 +48,23 @@ jobs:
         dotnet test
         --no-build
         --framework ${{ matrix.tfm }} 
+        --collect "Code Coverage;Format=Cobertura"
         --verbosity normal
         --configuration ${{ matrix.configuration }} 
         --logger trx 
         --results-directory "TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}"
+
+    - name: Generage coverage report
+      uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
+      with:
+        reports: '${{ github.workspace }}/TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}/**/*.cobertura.xml'
+        targetdir: '${{ github.workspace }}/coveragereport'
+        reporttypes: 'MarkdownSummaryGithub'
+        assemblyfilters: '-*.Tests;-LCTestTarget*'
+  
+    - name: Add coverage report to summary
+      run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+      shell: bash
 
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
