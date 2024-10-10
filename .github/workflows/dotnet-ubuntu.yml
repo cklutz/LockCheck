@@ -43,7 +43,7 @@ jobs:
         dotnet test
         --no-build
         --framework ${{ matrix.tfm }} 
-        --collect "Code Coverage;Format=Cobertuna"
+        --collect "Code Coverage;Format=Cobertura"
         --verbosity normal
         --configuration ${{ matrix.configuration }} 
         --logger trx 
