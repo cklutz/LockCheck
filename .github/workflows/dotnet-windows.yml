@@ -68,6 +68,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results-${{ matrix.tfm }}-${{ matrix.configuration }}
-        path: TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}
+        path: |
+          TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}
+          coveragereport
       # Use always() to always run this step to publish test results when there are test failures
       if: ${{ always() }}
