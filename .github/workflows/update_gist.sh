@@ -3,12 +3,13 @@
 SCRIPT_NAME=$(basename $0)
 
 if [[ $# -lt 2 ]]; then
-    echo "Usage: $SCRIPT_NAME GIST_ID FILE" 1>&2
+    echo "Usage: $SCRIPT_NAME GIST_ID FILE LOCAL_FILE" 1>&2
     exit 1
 fi
 
 GIST_ID=$1
 FILE=$2
+LOCAL_FILE=$3
 MAX_RETRIES=10          # Maximum number of retries
 RETRY_DELAY=1           # Delay between retries in seconds
 
@@ -17,8 +18,8 @@ for ((i=1; i<=MAX_RETRIES; i++)); do
     echo "$SCRIPT_NAME: Attempt $i of $MAX_RETRIES to update gist..."
 
     # Try to update the gist
-    echo gh gist edit "$GIST_ID" -f "$FILE"
-    OUTPUT=$(gh gist edit "$GIST_ID" -f "$FILE" 2>&1)
+    echo $SCRIPT_NAME: gh gist edit "$GIST_ID" -f "$FILE" "$LOCAL_FILE"
+    OUTPUT=$(gh gist edit "$GIST_ID" -f "$FILE" "$LOCAL_FILE" 2>&1)
     EXIT_CODE=$?
 
     # Check if the update succeeded
