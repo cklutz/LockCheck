@@ -22,6 +22,9 @@ jobs:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
     steps:
+    - name: Test GH CIL
+      run: gh --help
+
     - name: Checkout
       uses: actions/checkout@v4
       with:
@@ -31,7 +34,6 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
-        cache: true
 
     - name: Build
       run: >
