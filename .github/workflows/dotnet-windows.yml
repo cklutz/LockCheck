@@ -67,7 +67,7 @@ jobs:
     - name: Update CodeCoverage badge
       run: >
         gh gist edit 9bd61dea93406219c4985641039c4e2f
-        -f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}
+        -f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}.svg
         ${{ github.workspace }}/coveragereport/badge_combined.svg
       env:
         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
