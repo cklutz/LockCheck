@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -43,8 +44,16 @@ namespace LockCheck.Tests
                 Assert.AreEqual(1, processInfos.Count); // Sanity, has been tested in LockManagerTests
                 var expectedMessageContents = new StringBuilder();
 
-                // Getting the owner is not really stable on Windows, it seems.
-                ProcessInfo.Format(expectedMessageContents, processInfos, [fileName], ownerOverwrite: "OWNER");
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    // Getting the owner is not really stable on Windows, it seems.
+                    ProcessInfo.Format(expectedMessageContents, processInfos, [fileName],
+                        ownerOverwrite: $@"{Environment.UserDomainName}\{Environment.UserName}");
+                }
+                else
+                {
+                    ProcessInfo.Format(expectedMessageContents, processInfos, [fileName]);
+                }
 
                 try
                 {
