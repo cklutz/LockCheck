@@ -125,4 +125,4 @@ jobs:
       with:
         name: coverage-report-${{ env.LC_PIVOT }}
         path: CoverageReport-${{ env.LC_PIVOT }}
-      if: ${{ always() && inputs.code-coverage }}
+      if: ${{ always() && inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
