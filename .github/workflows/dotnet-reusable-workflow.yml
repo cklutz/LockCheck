@@ -1,0 +1,128 @@
+name: DotNet Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'The OS to run the build/tests on'
+        required: true
+        type: string
+      dotnet-version:
+        description: 'The .NET version to use'
+        required: true
+        type: string
+      configuration:
+        description: 'The build configuration to build/test'
+        required: true
+        type: string
+      tfm:
+        description: 'The target framework to build/test for'
+        required: true
+        type: string
+      code-coverage:
+        description: 'Enable code coverage during unit tests (will only run for `code-coverage-configuration`)'
+        required: false
+        type: boolean
+        default: false
+      code-coverage-configuration:
+        description: 'The build configuration to run code coverage for (will only run if `code-coverage` is `true`)'
+        required: false
+        type: string
+        default: Release
+      code-coverage-badge:
+        description: 'Enable generating a batch for code coverage'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runs-on }}
+
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      LC_PIVOT: ${{ inputs.tfm }}-${{ inputs.configuration }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
+
+    - name: Setup .NET (64 bit)
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Configure
+      id: configure
+      run: |
+        shopt -s nocasematch
+        if [[ "${{ inputs.runs-on }}" == *"windows"* ]]; then
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*" >> "$GITHUB_OUTPUT"
+        elif [[ "${{ inputs.runs-on }}" == *"ubuntu"* ]]; then
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*" >> "$GITHUB_OUTPUT"
+        fi
+        if [[ "${{ inputs.code-coverage }}" == "true" ]]; then
+          echo "LC_COVERAGE_TEST_OPTIONS=--collect \"Code Coverage;Format=Cobertura\"" >> "$GITHUB_OUTPUT"
+        fi
+      shell: bash
+
+    - name: Build
+      run: >
+        dotnet build 
+        --framework ${{ inputs.tfm }}
+        --configuration ${{ inputs.configuration }}
+
+    - name: Test
+      run: >
+        dotnet test
+        --no-build
+        --framework ${{ inputs.tfm }} 
+        --configuration ${{ inputs.configuration }} 
+        ${{ steps.configure.outputs.LC_COVERAGE_TEST_OPTIONS }}
+        --verbosity normal
+        --logger trx 
+        --results-directory "TestResults-${{ env.LC_PIVOT }}"
+
+    - name: Upload TestResults
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ env.LC_PIVOT }}
+        path: TestResults-${{ env.LC_PIVOT }}
+      if: ${{ always() }}
+
+    - name: Generage coverage report
+      uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
+      with:
+        reports: '${{ github.workspace }}/TestResults-${{ env.LC_PIVOT }}/**/*.cobertura.xml'
+        targetdir: '${{ github.workspace }}/CoverageReport-${{ env.LC_PIVOT }}'
+        reporttypes: 'Html;Html_Dark;Cobertura;MarkdownSummaryGithub;Badges;JsonSummary'
+        assemblyfilters: '-*.Tests;-LCTestTarget*'
+        classfilters: '${{ steps.configure.outputs.LC_COVERAGE_EXCLUDE_CLASS_FILTER }}'
+        title: 'Results for ${{ inputs.tfm }}, ${{ inputs.configuration }}'
+        tag: '${{ github.run_number }}_${{ github.run_id }}'
+      if: ${{ inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
+  
+    - name: Add coverage report to summary
+      run: cat $GITHUB_WORKSPACE/CoverageReport-${{ env.LC_PIVOT }}/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+      shell: bash
+      if: ${{ inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
+
+    - name: Update CodeCoverage badge
+      run: |
+        chmod +rx .github/workflows/update_gist.sh
+        .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f \
+          code-coverage-windows-${{ env.LC_PIVOT }}.svg \
+          $GITHUB_WORKSPACE/CoverageReport-${{ env.LC_PIVOT }}/badge_combined.svg
+      shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
+      if: ${{ inputs.code-coverage && inputs.code-coverage-badge && inputs.configuration == inputs.code-coverage-configuration }}
+
+    - name: Upload CoverageReport
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-${{ env.LC_PIVOT }}
+        path: CoverageReport-${{ env.LC_PIVOT }}
+      if: ${{ always() && inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}

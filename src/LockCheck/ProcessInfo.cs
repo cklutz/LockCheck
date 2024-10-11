@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -124,7 +124,7 @@ namespace LockCheck
             return ToString();
         }
 
-        public static void Format(StringBuilder sb, IEnumerable<ProcessInfo> lockers, IEnumerable<string> fileNames, int? maxProcesses = null)
+        public static void Format(StringBuilder sb, IEnumerable<ProcessInfo> lockers, IEnumerable<string> fileNames, int? maxProcesses = null, string ownerOverwrite = null)
         {
             if (lockers == null || !lockers.Any())
                 return;
@@ -135,7 +135,7 @@ namespace LockCheck
             sb.AppendFormat("File {0} locked by: ", string.Join(", ", fileNames));
             foreach (ProcessInfo locker in lockers.Take(max))
             {
-                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, owner={locker.Owner}, started={locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
+                sb.AppendLine($"[{locker.ApplicationName}, pid={locker.ProcessId}, owner={ownerOverwrite ?? locker.Owner}, started={locker.StartTime:yyyy-MM-dd HH:mm:ss.fff}]");
             }
 
             if (count > max)

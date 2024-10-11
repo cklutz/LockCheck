@@ -1,57 +1,24 @@
 name: Ubuntu
 
 on:
-  # Allow to use "gh.exe workflow run Ubuntu --ref <branchname>" to trigger this workflow for arbitrary branches.
-  workflow_dispatch:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    workflow_dispatch:
+    push:
+      branches: [ master ]
+    pull_request:
+      branches: [ master ]
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        configuration: [Debug, Release]
-        dotnet-version: ['8.0.x']
-        tfm: ['net8.0']
-
-    runs-on: ubuntu-latest
-
-    env:
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    build:
+      strategy:
+        matrix:
+          runs-on: ['ubuntu-latest']
+          configuration: [Debug, Release]
+          dotnet-version: ['8.0.x']
+          tfm: ['net8.0']      
+      uses: ./.github/workflows/dotnet-reusable-workflow.yml
       with:
-        fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
-
-    - name: Setup .NET (64 bit)
-      uses: actions/setup-dotnet@v3
-      with:
+        runs-on: ${{ matrix.runs-on }}
         dotnet-version: ${{ matrix.dotnet-version }}
-
-    - name: Build
-      run: >
-        dotnet build 
-        --framework ${{ matrix.tfm }}
-        --configuration ${{ matrix.configuration }}
-
-    - name: Test
-      run: >
-        dotnet test
-        --no-build
-        --framework ${{ matrix.tfm }} 
-        --verbosity normal
-        --configuration ${{ matrix.configuration }} 
-        --logger trx 
-        --results-directory "TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}"
-
-    - name: Upload dotnet test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-${{ matrix.tfm }}-${{ matrix.configuration }}
-        path: TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}
-      # Use always() to always run this step to publish test results when there are test failures
-      if: ${{ always() }}
+        configuration: ${{ matrix.configuration }}
+        tfm: ${{ matrix.tfm }}
+        code-coverage: true
