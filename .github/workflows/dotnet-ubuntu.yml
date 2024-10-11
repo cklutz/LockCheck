@@ -24,6 +24,7 @@ jobs:
         code-coverage: true
 
     update-coverage-report:
+      needs: build
       runs-on: windows-latest
       steps:
         - uses: actions/download-artifact@v4
