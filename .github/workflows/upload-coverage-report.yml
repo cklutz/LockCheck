@@ -39,7 +39,7 @@ jobs:
         #if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
         #    echo "update_report=true" >> "$GITHUB_OUTPUT"
         #else
-            commit_count=$(git log --oneline --since '24 hours ago' | wc -l)"
+            commit_count=$(git log --oneline --since '24 hours ago' | wc -l)
             echo "$commit_count found in the last 24 hours"
             if [[ $commit_count -gt 0 ]]; then
                 echo "update_report=true" >> "$GITHUB_OUTPUT"
