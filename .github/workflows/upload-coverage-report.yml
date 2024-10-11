@@ -52,22 +52,15 @@ jobs:
                 artifact_subdir=$(echo $artifact_id | sed 's/coverage-report-//g')
 
                 echo "Downloading artifact '$artifact_id' for workflow '$workflow_id'"
-                gh run download $run_id -n $artifact_id -D $ARTIFACTS_TMP_DIR
-                if [ $? -ne 0 ]; then
-                    echo "::error::Failed to download artifact '$artifact_id' for workflow '$workflow_id'" 1>&2
-                    exit 1
-                fi
-
-                ls -l $ARTIFACTS_TMP_DIR
-                echo "Unzip artifact '$ARTIFACTS_TMP_DIR/${artifact_id}.zip' into '$OUTPUT_DIR/$artifact_subdir'"
-                unzip $ARTIFACTS_TMP_DIR/${artifact_id}.zip -d $OUTPUT_DIR/$artifact_subdir
+                gh run download $run_id -n $artifact_id -D $OUTPUT_DIR || exit 1
             done
         done
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         WF_SPEC: ${{ matrix.spec }}
-        ARTIFACTS_TMP_DIR: artifacts
         OUTPUT_DIR: coverage
+    - name: Display
+      run: ls -l coverage
     # - name: Setup Pages
     #   uses: actions/configure-pages@v5
     # - name: Upload Pages
