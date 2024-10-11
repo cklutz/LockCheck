@@ -4,14 +4,13 @@ Uses platform APIs to find processes locking one or multiple files or directorie
 
 [![MIT License](https://img.shields.io/github/license/cklutz/LockCheck?color=%230b0&style=flat-square)](https://github.com/cklutz/LockCheck/blob/master/LICENSE) 
 [![nuget](https://img.shields.io/nuget/v/LockCheck?style=flat-square)](https://www.nuget.org/packages/LockCheck/)
-[![windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
-[![ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
 
 <!-- coverage badges are static files, include "cache-control" in url to make sure they refresh; values same as for GitHub badge.svg on builds -->
-[![](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release)
-[![](https://cklutz.github.io/LockCheck/windows-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net8.0-release)
-[![](https://cklutz.github.io/LockCheck/windows-net481-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net481-release)
 
+| Build | Coverage |
+| ------| ---------|
+| [![](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows) | [![](https://cklutz.github.io/LockCheck/windows-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net8.0-release) <br/>[![](https://cklutz.github.io/LockCheck/windows-net481-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net481-release)|
+| [![](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu) | [![](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release) |
 
 ### Platforms
 
