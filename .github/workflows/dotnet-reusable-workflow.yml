@@ -56,9 +56,9 @@ jobs:
       run: |
         shopt -s nocasematch
         if [[ "${{ inputs.runs-on }}" == *"windows"* ]]; then
-          echo "::set-output LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*"
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*" >> "$GITHUB_ENV"
         elif [[ "${{ inputs.runs-on }}" == *"ubuntu"* ]]; then
-          echo "::set-output LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*"
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*" >> "$GITHUB_ENV"
         fi
       shell: bash
 
