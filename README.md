@@ -2,19 +2,38 @@
 
 Uses platform APIs to find processes locking one or multiple files or directories.
 
+## Status
+
 [![MIT License](https://img.shields.io/github/license/cklutz/LockCheck?color=%230b0&style=flat-square)](https://github.com/cklutz/LockCheck/blob/master/LICENSE) 
 [![nuget](https://img.shields.io/nuget/v/LockCheck?style=flat-square)](https://www.nuget.org/packages/LockCheck/)
 
-<!-- coverage badges are static files, include "cache-control" in url to make sure they refresh; values same as for GitHub badge.svg on builds -->
+<!--
+Example for using the generaged bagdes:
+
+![](https://cklutz.github.io/LockCheck/windows-net8.0-release/badge.svg?cache-control=max-age=300,private)](...)
+
+Coverage badges are static files, include "cache-control" in url to make sure they refresh; values same as for GitHub badge.svg on builds
+
+Here, we do not use them but rather generate them dynamically. In the end, this currently turns out to be more flexible and
+easier overall.
+
+Example:
+
+[![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fwindows-net8.0-release%2FSummary.json&query=%24.summary.linecoverage&label=net8.0&suffix=%25)]
+-->
 
 | Build | Coverage |
 | ------| ---------|
-| [![](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows) | [![](https://cklutz.github.io/LockCheck/windows-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net8.0-release) <br/>[![](https://cklutz.github.io/LockCheck/windows-net481-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net481-release)|
-| [![](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu) | [![](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release) |
+| [![](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows) | [![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fwindows-net8.0-release%2FSummary.json&query=%24.summary.linecoverage&label=net%208.0&suffix=%25)](https://cklutz.github.io/LockCheck/windows-net8.0-release) [![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fwindows-net481-release%2FSummary.json&query=%24.summary.linecoverage&label=net%204.8&suffix=%25)](https://cklutz.github.io/LockCheck/windows-net481-release) |
+| [![](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu) | [![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fubuntu-net8.0-release%2FSummary.json&query=%24.summary.linecoverage&label=net%208.0&suffix=%25)](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release) |
 
-### Platforms
+Notes:
+* *A build is done for every supported target framework for that platform (currently for Windows this is .NET 8.0 and .NET Framework 4.8, for Linux/Ubuntu this is .NET 8.0) in every supported configuration (Release and Debug). 
+* Code coverage is generated separately for every supported target framework for a platform, but only for the Release configuration. It is updated nightly from the latest build of the main branch.
 
-## Windows
+## Platforms
+
+### Windows
 
 On the Windows platform there are two possible engines to provide the lock information:
 
@@ -39,7 +58,7 @@ Finally, note that if the calling process does not have the required permissions
 access information about other processes (that might hold a lock), these processes
 are simply not returned. In other words, it is a best effort approach.
 
-## Linux
+### Linux
 
 On Linux, the `/proc/locks` file is used as basis for finding processes holding a lock
 on a file. Linux supports multiple lock types (see this [article](https://gavv.github.io/articles/file-locks/)
@@ -53,11 +72,11 @@ it has not been used in a real world scenario. The Linux version has been develo
 
 If you have any improvements / PRs please let me know.
 
-### Usage
+## Usage
 
-## Getting lock information on demand
+### Getting lock information on demand
 
-### Basic Usage
+#### Basic Usage
 
 To get the lockers of a file, if any, use the `LockManager.GetLockingProcessInfos()` function.
 
@@ -68,7 +87,7 @@ foreach (var processInfo in LockManager.GetLockingProcessInfos("c:\\temp\\foo.xl
 }
 ```
 
-### Inspect processes current working directories
+#### Inspect processes current working directories
 
 On Windows if you attempt to delete a directory that is the current working directory of a
 process, this will result in "access denied".
@@ -77,7 +96,7 @@ on whether they are the current working directory of any process, and if so, inc
 in the result.  To enable this feature you need to pass the `LockManagerFeatures.CheckDirectories`
 flag.
 
-## Enriching Exceptions with Lock Information
+### Enriching Exceptions with Lock Information
 
 The `ExceptionUtils.RethrowWithLockingInformation()` method can be used to enrich exceptions
 with lock information, if available.
@@ -147,7 +166,7 @@ And this is it, with that information included:
         ExceptionUtils.cs(80,0): at LockCheck.ExceptionUtils.RethrowWithLockingInformation(Exception ex, String[] fileNames)
         ExceptionUtils.cs(24,0): at LockCheck.ExceptionUtils.Test()
 
-### Examples
+## Standalone tool
 
 A standalone tool (`LockCheckTool`) is included and is available for both .NET 8+, and .NET Framework (4.8.1+).
 You can test the functionality as follows:
