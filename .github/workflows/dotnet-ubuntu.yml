@@ -22,3 +22,14 @@ jobs:
         configuration: ${{ matrix.configuration }}
         tfm: ${{ matrix.tfm }}
         code-coverage: true
+
+    update-coverage-report:
+      runs-on: windows-latest
+      steps:
+        - uses: actions/download-artifact@v4
+          with:
+            pattern: coverage-report-*-Release
+            path: artifacts
+        - name: show
+          run: ls -R
+          shell: bash        
