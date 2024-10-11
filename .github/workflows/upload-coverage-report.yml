@@ -86,6 +86,7 @@ jobs:
           fi
 
           badge_url="https://img.shields.io/badge/${badge_content}-branch_${branch_coverage}%25_method_${method_coverage}%25-${badge_color}?style=flat-square"
+          echo "Badge URL: $badge_url"
           curl -o $(dirname $summary)/badge.svg "$badge_url"
         done
 
