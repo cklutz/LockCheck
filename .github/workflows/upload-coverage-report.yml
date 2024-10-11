@@ -49,7 +49,7 @@ jobs:
             IFS=',' read -ra artifacts <<< "${spec[@]:1}"
             for i in "${artifacts[@]}"; do
                 artifact_id=$(echo $i | xargs)
-                artifact_subdir=$OUTPUT_DIR/$(echo $artifact_id | sed 's/coverage-report-//g')
+                artifact_subdir=$OUTPUT_DIR/$(echo $artifact_id | sed 's/coverage-report-//g' | tr '[:upper:]' '[:lower:]')
 
                 echo "Downloading artifact '$artifact_id' for workflow '$workflow_id'"
                 gh run download $run_id -n $artifact_id -D $artifact_subdir || exit 1
@@ -58,15 +58,13 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         WF_SPEC: ${{ matrix.spec }}
-        OUTPUT_DIR: coverage
-    - name: Display
-      run: ls -lR coverage
-    # - name: Setup Pages
-    #   uses: actions/configure-pages@v5
-    # - name: Upload Pages
-    #   uses: actions/upload-pages-artifact@v3        
-    #   with:
-    #     path: coverage-results
-    # - name: Deploy Pages
-    #   id: deployment
-    #   uses: actions/deploy-pages@v4
+        OUTPUT_DIR: _site/coverage
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+    - name: Upload Pages
+      uses: actions/upload-pages-artifact@v3        
+      with:
+        path: _site/coverage
+    - name: Deploy Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
