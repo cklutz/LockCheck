@@ -4,17 +4,36 @@ on:
   workflow_call:
     inputs:
       runs-on:
+        description: 'The OS to run the build/tests on'
         required: true
         type: string
       dotnet-version:
+        description: 'The .NET version to use'
         required: true
         type: string
       configuration:
+        description: 'The build configuration to build/test'
         required: true
         type: string
       tfm:
+        description: 'The target framework to build/test for'
         required: true
         type: string
+      code-coverage:
+        description: 'Enable code coverage during unit tests (will only run for `code-coverage-configuration`)'
+        required: false
+        type: boolean
+        default: false
+      code-coverage-configuration:
+        description: 'The build configuration to run code coverage for (will only run if `code-coverage` is `true`)'
+        required: false
+        type: string
+        default: Release
+      code-coverage-badge:
+        description: 'Enable generating a batch for code coverage'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -36,6 +55,19 @@ jobs:
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
 
+    - name: Configure
+      run: |
+        shopt -s nocasematch
+        if [[ "${{ inputs.runs-on }}" == *"windows"* ]]; then
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*" >> "$GITHUB_ENV"
+        elif [[ "${{ inputs.runs-on }}" == *"ubuntu"* ]]; then
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*" >> "$GITHUB_ENV"
+        fi
+        if [[ "${{ inputs.code-coverage }}" == "true" ]]; then
+          echo "LC_COVERAGE_TEST_OPTIONS=--collect \"Code Coverage;Format=Cobertura\""
+        fi
+      shell: bash
+
     - name: Build
       run: >
         dotnet build 
@@ -47,21 +79,11 @@ jobs:
         dotnet test
         --no-build
         --framework ${{ inputs.tfm }} 
-        --collect "Code Coverage;Format=Cobertura"
+        $LC_COVERAGE_TEST_OPTIONS
         --verbosity normal
         --configuration ${{ inputs.configuration }} 
         --logger trx 
         --results-directory "TestResults-${{ env.LC_PIVOT }}"
-
-    - name: Prepare coverage settings
-      run: |
-        shopt -s nocasematch
-        if [[ "${{ inputs.runs-on }}" == *"windows"* ]]; then
-          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*" >> "$GITHUB_ENV"
-        elif [[ "${{ inputs.runs-on }}" == *"ubuntu"* ]]; then
-          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*" >> "$GITHUB_ENV"
-        fi
-      shell: bash
 
     - name: Generage coverage report
       uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
@@ -73,12 +95,12 @@ jobs:
         classfilters: '${{ env.LC_COVERAGE_EXCLUDE_CLASS_FILTER }}'
         title: 'Results for ${{ inputs.tfm }}, ${{ inputs.configuration }}'
         tag: '${{ github.run_number }}_${{ github.run_id }}'
-      if: ${{ inputs.configuration == 'Release' }}
+      if: ${{ inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
   
     - name: Add coverage report to summary
       run: cat $GITHUB_WORKSPACE/coveragereport-${{ env.LC_PIVOT }}/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
       shell: bash
-      if: ${{ inputs.configuration == 'Release' }}
+      if: ${{ inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
 
     - name: Update CodeCoverage badge
       run: |
@@ -89,7 +111,7 @@ jobs:
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
-      if: ${{ github.ref_name == 'master' && inputs.configuration == 'Release' }}
+      if: ${{ inputs.code-coverage && github.ref_name == 'master' && inputs.configuration == inputs.code-coverage-configuration }}
 
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
