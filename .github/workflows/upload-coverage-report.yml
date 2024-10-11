@@ -22,8 +22,8 @@ jobs:
 
     env:
       WORKFLOW_SPEC: >
-        dotnet-windows.yml: codecoverage-report-windows-net8.0-Release,codecoverage-report-windows-net481-Release |
-        dotnet-ubuntu.yml:  codecoverage-report-ubuntu-net8.0-Release
+        dotnet-windows.yml: coverage-report-windows-net8.0-Release,coverage-report-windows-net481-Release |
+        dotnet-ubuntu.yml:  coverage-report-ubuntu-net8.0-Release
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -49,7 +49,7 @@ jobs:
             IFS=',' read -ra artifacts <<< "${spec[@]:1}"
             for i in "${artifacts[@]}"; do
                 artifact_id=$(echo $i | xargs)
-                artifact_subdir=$(echo $artifact_id | sed 's/codecoverage-report-//g')
+                artifact_subdir=$(echo $artifact_id | sed 's/coverage-report-//g')
 
                 echo "Downloading artifact '$artifact_id' for workflow '$workflow_id'"
                 gh run download $run_id -n $artifact_id -D $ARTIFACTS_TMP_DIR
@@ -66,7 +66,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         WF_SPEC: ${{ matrix.spec }}
         ARTIFACTS_TMP_DIR: artifacts
-        OUTPUT_DIR: coverage-results
+        OUTPUT_DIR: coverage
     # - name: Setup Pages
     #   uses: actions/configure-pages@v5
     # - name: Upload Pages
