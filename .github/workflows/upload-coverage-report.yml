@@ -21,8 +21,8 @@ jobs:
       cancel-in-progress: false
 
     env:
-      WORKFLOW_SPEC: |
-        dotnet-windows.yml: codecoverage-report-windows-net8.0-Release,codecoverage-report-windows-net481-Release
+      WORKFLOW_SPEC: >
+        dotnet-windows.yml: codecoverage-report-windows-net8.0-Release,codecoverage-report-windows-net481-Release |
         dotnet-ubuntu.yml:  codecoverage-report-ubuntu-net8.0-Release
     steps:
     - name: Checkout
@@ -32,7 +32,7 @@ jobs:
 
     - name: 'Download latest successful build artifact'
       run: |
-        IFS='\n' read -ra wsspec <<< "${{ env.WORKFLOW_SPEC }}"
+        IFS='|' read -ra wsspec <<< "${{ env.WORKFLOW_SPEC }}"
         echo $wsspec
         for ispec in "${wsspec[@]}"; do
             echo $ispec
