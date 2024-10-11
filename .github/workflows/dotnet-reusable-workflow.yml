@@ -41,8 +41,9 @@ jobs:
 
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      LC_COVERAGE_EXCLUDE_CLASS_FILTER: ""
       LC_PIVOT: ${{ inputs.tfm }}-${{ inputs.configuration }}
+      LC_COVERAGE_EXCLUDE_CLASS_FILTER: ""
+      LC_COVERAGE_TEST_OPTIONS: ""
 
     steps:
     - name: Checkout
@@ -79,7 +80,7 @@ jobs:
         dotnet test
         --no-build
         --framework ${{ inputs.tfm }} 
-        $LC_COVERAGE_TEST_OPTIONS
+        ${{ env.LC_COVERAGE_TEST_OPTIONS }}
         --verbosity normal
         --configuration ${{ inputs.configuration }} 
         --logger trx 
@@ -111,7 +112,7 @@ jobs:
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
-      if: ${{ inputs.code-coverage && github.ref_name == 'master' && inputs.configuration == inputs.code-coverage-configuration }}
+      if: ${{ inputs.code-coverage && inputs.code-coverage-badge && inputs.configuration == inputs.code-coverage-configuration }}
 
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
