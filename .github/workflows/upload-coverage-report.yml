@@ -36,9 +36,9 @@ jobs:
     - name: Check for commits
       id: check
       run: |
-        #if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-        #    echo "update_report=true" >> "$GITHUB_OUTPUT"
-        #else
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "update_report=true" >> "$GITHUB_OUTPUT"
+        else
             commit_count=$(git log --oneline --since '24 hours ago' | wc -l)
             echo "$commit_count found in the last 24 hours"
             if [[ $commit_count -gt 0 ]]; then
@@ -46,7 +46,7 @@ jobs:
             else
                 echo "update_report=false" >> "$GITHUB_OUTPUT"
             fi
-        #fi
+        fi
 
     - name: 'Download latest successful build artifact'
       run: |
