@@ -85,6 +85,13 @@ jobs:
         --logger trx 
         --results-directory "TestResults-${{ env.LC_PIVOT }}"
 
+    - name: Upload TestResults
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ env.LC_PIVOT }}
+        path: TestResults-${{ env.LC_PIVOT }}
+      if: ${{ always() }}
+
     - name: Generage coverage report
       uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
       with:
@@ -112,13 +119,6 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
       if: ${{ inputs.code-coverage && inputs.code-coverage-badge && inputs.configuration == inputs.code-coverage-configuration }}
-
-    - name: Upload TestResults
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-${{ env.LC_PIVOT }}
-        path: TestResults-${{ env.LC_PIVOT }}
-      if: ${{ always() }}
 
     - name: Upload CoverageReport
       uses: actions/upload-artifact@v4
