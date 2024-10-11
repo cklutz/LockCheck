@@ -2,10 +2,10 @@
 
 Uses platform APIs to find processes locking one or multiple files or directories.
 
-## Status
-
 [![MIT License](https://img.shields.io/github/license/cklutz/LockCheck?color=%230b0&style=flat-square)](https://github.com/cklutz/LockCheck/blob/master/LICENSE) 
 [![nuget](https://img.shields.io/nuget/v/LockCheck?style=flat-square)](https://www.nuget.org/packages/LockCheck/)
+
+## Status
 
 <!--
 Example for using the generaged bagdes:
@@ -22,14 +22,13 @@ Example:
 [![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fwindows-net8.0-release%2FSummary.json&query=%24.summary.linecoverage&label=net8.0&suffix=%25)]
 -->
 
-| Build | Coverage |
-| ------| ---------|
+| Build [^1] | Coverage [^2] |
+| -----------| --------------|
 | [![](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows) | [![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fwindows-net8.0-release%2FSummary.json&query=%24.summary.linecoverage&label=net%208.0&suffix=%25)](https://cklutz.github.io/LockCheck/windows-net8.0-release) [![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fwindows-net481-release%2FSummary.json&query=%24.summary.linecoverage&label=net%204.8&suffix=%25)](https://cklutz.github.io/LockCheck/windows-net481-release) |
 | [![](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu) | [![](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcklutz.github.io%2FLockCheck%2Fubuntu-net8.0-release%2FSummary.json&query=%24.summary.linecoverage&label=net%208.0&suffix=%25)](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release) |
 
-Notes:
-* *A build is done for every supported target framework for that platform (currently for Windows this is .NET 8.0 and .NET Framework 4.8, for Linux/Ubuntu this is .NET 8.0) in every supported configuration (Release and Debug). 
-* Code coverage is generated separately for every supported target framework for a platform, but only for the Release configuration. It is updated nightly from the latest build of the main branch.
+[^1]: A build is done for every supported target framework for that platform (currently for Windows this is .NET 8.0 and .NET Framework 4.8, for Linux/Ubuntu this is .NET 8.0) in every supported configuration (Release and Debug). 
+[^2]: Code coverage is generated separately for every supported target framework for a platform, but only for the Release configuration. It is updated nightly from the latest build of the main branch.
 
 ## Platforms
 
