@@ -22,35 +22,3 @@ jobs:
         configuration: ${{ matrix.configuration }}
         tfm: ${{ matrix.tfm }}
         code-coverage: true
-
-    update-coverage-report:
-      needs: build
-      runs-on: windows-latest
-      environment:
-        name: github-pages
-        url: ${{ steps.deployment.outputs.page_url }}
-      # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-      permissions:
-        contents: read
-        pages: write
-        id-token: write
-      # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-      # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-      concurrency:
-        group: "pages"
-        cancel-in-progress: false
-      steps:
-        - name: Download Artifacts
-          uses: actions/download-artifact@v4
-          with:
-            pattern: coverage-report-*-Release
-            path: ubuntu
-        - name: Setup Pages
-          uses: actions/configure-pages@v5
-        - name: Upload Pages
-          uses: actions/upload-pages-artifact@v3        
-          with:
-            path: ubuntu
-        - name: Deploy Pages
-          id: deployment
-          uses: actions/deploy-pages@v4
