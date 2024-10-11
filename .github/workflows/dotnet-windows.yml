@@ -19,7 +19,7 @@ jobs:
                 tfm: ['net8.0', 'net481']
         steps:
             - name: Build
-              uses: ./.github/workflows/dotnet-reusable-workflow.yml
+              uses: ./.github/workflows/dotnet-reusable-workflow.yml@ghactions
               with:
                 dotnet-version: ${{ matrix.dotnet-version }}
                 configuration: ${{ matrix.configuration }}
