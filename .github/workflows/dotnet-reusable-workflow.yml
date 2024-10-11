@@ -65,7 +65,7 @@ jobs:
           echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*" >> "$GITHUB_ENV"
         fi
         if [[ "${{ inputs.code-coverage }}" == "true" ]]; then
-          echo "LC_COVERAGE_TEST_OPTIONS=--collect \"Code Coverage;Format=Cobertura\""
+          echo "LC_COVERAGE_TEST_OPTIONS=\"--collect \\\"Code Coverage;Format=Cobertura\\\"\""
         fi
         cat "$GITHUB_ENV"
       shell: bash
