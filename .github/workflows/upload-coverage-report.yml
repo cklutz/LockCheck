@@ -64,7 +64,7 @@ jobs:
         for summary in $OUTPUT_DIR/**/Summary.json
         do
           echo "Generate badge for $summary"
-          badge_content=$($(basename $(dirname $summary))
+          badge_content=$(basename $(dirname $summary))
 
           branch_coverage=$(printf "%.0f" $(jq ".summary.branchcoverage" $summary))
           method_coverage=$(printf "%.0f" $(jq ".summary.methodcoverage" $summary))
