@@ -40,7 +40,7 @@ jobs:
             echo "Getting last successful run for workflow '$workflow_id'"
 
             run_id=$(gh run list -w $workflow_id --json conclusion,headBranch,databaseId --jq 'first(.[] | select(.conclusion | contains("success"))) | .databaseId')
-            if [ -z "$run_id" ]; do
+            if [ -z "$run_id" ]; then
               echo "::error:::No successful run found for workflow '$workflow_id'" 1>&2
               exit 1
             fi
