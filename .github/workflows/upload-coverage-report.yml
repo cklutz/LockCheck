@@ -2,6 +2,8 @@ name: Upload Coverage Report
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * *' # daily at 00:05
 
 jobs:
   update-coverage-report:
@@ -31,6 +33,21 @@ jobs:
       with:
         fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
 
+    - name: Check for commits
+      id: check
+      run: |
+        #if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+        #    echo "update_report=true" >> "$GITHUB_OUTPUT"
+        #else
+            commit_count=$(git log --oneline --since '24 hours ago' | wc -l)"
+            echo "$commit_count found in the last 24 hours"
+            if [[ $commit_count -gt 0 ]]; then
+                echo "update_report=true" >> "$GITHUB_OUTPUT"
+            else
+                echo "update_report=false" >> "$GITHUB_OUTPUT"
+            fi
+        #fi
+
     - name: 'Download latest successful build artifact'
       run: |
         IFS='|' read -ra wsspec <<< "${{ env.WORKFLOW_SPEC }}"
@@ -58,6 +75,7 @@ jobs:
         done
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ steps.check.outputs.update_report }}
 
     - name: Generate Badges
       run: |
@@ -89,13 +107,19 @@ jobs:
           echo "Badge URL: $badge_url"
           curl -o $(dirname $summary)/badge.svg "$badge_url"
         done
+      if: ${{ steps.check.outputs.update_report }}
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
+      if: ${{ steps.check.outputs.update_report }}
+
     - name: Upload Pages
       uses: actions/upload-pages-artifact@v3        
       with:
         path: _site/coverage
+      if: ${{ steps.check.outputs.update_report }}
+
     - name: Deploy Pages
       id: deployment
       uses: actions/deploy-pages@v4
+      if: ${{ steps.check.outputs.update_report }}
