@@ -42,8 +42,6 @@ jobs:
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       LC_PIVOT: ${{ inputs.tfm }}-${{ inputs.configuration }}
-      LC_COVERAGE_EXCLUDE_CLASS_FILTER: ""
-      LC_COVERAGE_TEST_OPTIONS: ""
 
     steps:
     - name: Checkout
@@ -57,15 +55,16 @@ jobs:
         dotnet-version: ${{ inputs.dotnet-version }}
 
     - name: Configure
+      id: configure
       run: |
         shopt -s nocasematch
         if [[ "${{ inputs.runs-on }}" == *"windows"* ]]; then
-          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*" >> "$GITHUB_ENV"
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*" >> "$GITHUB_OUTPUT"
         elif [[ "${{ inputs.runs-on }}" == *"ubuntu"* ]]; then
-          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*" >> "$GITHUB_ENV"
+          echo "LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*" >> "$GITHUB_OUTPUT"
         fi
         if [[ "${{ inputs.code-coverage }}" == "true" ]]; then
-          echo "LC_COVERAGE_TEST_OPTIONS=\"--collect \\\"Code Coverage;Format=Cobertura\\\"\""
+          echo "LC_COVERAGE_TEST_OPTIONS=--collect \"Code Coverage;Format=Cobertura\"" >> "$GITHUB_OUTPUT"
         fi
         cat "$GITHUB_ENV"
       shell: bash
@@ -77,14 +76,14 @@ jobs:
         --configuration ${{ inputs.configuration }}
 
     - name: Huh
-      run: echo ${{ env.LC_COVERAGE_TEST_OPTIONS }} / $LC_COVERAGE_TEST_OPTIONS / %LC_COVERAGE_TEST_OPTIONS%
+      run: echo ${{ steps.configure.outputs.LC_COVERAGE_TEST_OPTIONS }}
 
     - name: Test
       run: >
         dotnet test
         --no-build
         --framework ${{ inputs.tfm }} 
-        ${{ env.LC_COVERAGE_TEST_OPTIONS }}
+        ${{ steps.configure.outputs.LC_COVERAGE_TEST_OPTIONS }}
         --verbosity normal
         --configuration ${{ inputs.configuration }} 
         --logger trx 
@@ -97,7 +96,7 @@ jobs:
         targetdir: '${{ github.workspace }}/coveragereport-${{ env.LC_PIVOT }}'
         reporttypes: 'Html;Html_Dark;Cobertura;MarkdownSummaryGithub;Badges;JsonSummary'
         assemblyfilters: '-*.Tests;-LCTestTarget*'
-        classfilters: '${{ env.LC_COVERAGE_EXCLUDE_CLASS_FILTER }}'
+        classfilters: '${{ steps.configure.outputs.LC_COVERAGE_EXCLUDE_CLASS_FILTER }}'
         title: 'Results for ${{ inputs.tfm }}, ${{ inputs.configuration }}'
         tag: '${{ github.run_number }}_${{ github.run_id }}'
       if: ${{ inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
