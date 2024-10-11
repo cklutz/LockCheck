@@ -21,6 +21,7 @@ jobs:
       cancel-in-progress: false
 
     env:
+      OUTPUT_DIR: _site/coverage
       WORKFLOW_SPEC: >
         dotnet-windows.yml: coverage-report-windows-net8.0-Release,coverage-report-windows-net481-Release |
         dotnet-ubuntu.yml:  coverage-report-ubuntu-net8.0-Release
@@ -57,8 +58,37 @@ jobs:
         done
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        WF_SPEC: ${{ matrix.spec }}
-        OUTPUT_DIR: _site/coverage
+
+    - name: Generate Badges
+      run: |
+        for summary in $OUTPUT_DIR/**/Summary.json
+        do
+          echo "Generate badge for $summary"
+          badge_content=$($(basename $(dirname $summary))
+
+          branch_coverage=$(printf "%.0f" $(jq ".summary.branchcoverage" $summary))
+          method_coverage=$(printf "%.0f" $(jq ".summary.methodcoverage" $summary))
+
+          if (( branch_coverage < method_coverage )); then
+            min_coverage=$branch_coverage
+          else
+            min_coverage=$method_coverage
+          fi
+
+          if [[ $min_coverage -le 50 ]]; then
+            badge_color=red
+          elif [[ $min_coverage -le 70 ]]; then
+            badge_color=magenta
+          elif [[ $min_coverage -le 90 ]]; then
+            badge_color=yellow
+          else
+            badge_color=green
+          fi
+
+          badge_url="https://img.shields.io/badge/${badge_content}-branch_${branch_coverage}%25_method_${method_coverage}%25-${badge_color}?style=flat-square"
+          curl -o $(dirname $summary)/badge.svg "$badge_url"
+        done
+
     - name: Setup Pages
       uses: actions/configure-pages@v5
     - name: Upload Pages
