@@ -43,14 +43,14 @@ jobs:
         - name: Download Artifacts
           uses: actions/download-artifact@v4
           with:
-            pattern: coverage-report-net8.0-Release
+            pattern: coverage-report-*-Release
             path: ubuntu
         - name: Setup Pages
           uses: actions/configure-pages@v5
         - name: Upload Pages
           uses: actions/upload-pages-artifact@v3        
           with:
-            path: ubuntu/coverage-report-net8.0-Release
+            path: ubuntu
         - name: Deploy Pages
           id: deployment
           uses: actions/deploy-pages@v4
