@@ -27,10 +27,17 @@ jobs:
       needs: build
       runs-on: windows-latest
       steps:
-        - uses: actions/download-artifact@v4
+        - name: Download Artifacts
+          uses: actions/download-artifact@v4
           with:
-            pattern: coverage-report-*-Release
-            path: artifacts
-        - name: show
-          run: ls -R
-          shell: bash        
+            pattern: coverage-report-net8.0-Release
+            path: ubuntu
+        - name: Setup Pages
+          uses: actions/configure-pages@v5
+        - name: Upload Pages
+          uses: actions/upload-pages-artifact@v3        
+          with:
+            path: ubuntu/coverage-report-net8.0-Release
+        - name: Deploy Pages
+          id: deployment
+          uses: actions/deploy-pages@v4
