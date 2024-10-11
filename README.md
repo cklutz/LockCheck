@@ -8,7 +8,9 @@ Uses platform APIs to find processes locking one or multiple files or directorie
 [![ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
 
 [![](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release/badge.svg)](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release)
+
 [![](https://cklutz.github.io/LockCheck/windows-net8.0-release/badge.svg)](https://cklutz.github.io/LockCheck/windows-net8.0-release)
+
 [![](https://cklutz.github.io/LockCheck/windows-net481-release/badge.svg)](https://cklutz.github.io/LockCheck/windows-net481-release)
 
 

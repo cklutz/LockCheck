@@ -64,15 +64,15 @@ jobs:
         for summary in $OUTPUT_DIR/**/Summary.json
         do
           echo "Generate badge for $summary"
-          badge_content=$(echo $(basename $(dirname $summary)) | sed -e 's/_/__/g' -e 's/-/--/g' -e 's/ /_/g')
+          badge_content=$(echo $(basename $(dirname $summary)) | sed -e 's/-release//g' -e 's/-debug//g' -e 's/_/__/g' -e 's/-/--/g' -e 's/ /_/g')
 
           branch_coverage=$(printf "%.0f" $(jq ".summary.branchcoverage" $summary))
-          method_coverage=$(printf "%.0f" $(jq ".summary.methodcoverage" $summary))
+          line_coverage=$(printf "%.0f" $(jq ".summary.linecoverage" $summary))
 
-          if (( branch_coverage < method_coverage )); then
+          if (( branch_coverage < line_coverage )); then
             min_coverage=$branch_coverage
           else
-            min_coverage=$method_coverage
+            min_coverage=$line_coverage
           fi
 
           if [[ $min_coverage -le 50 ]]; then
@@ -85,7 +85,7 @@ jobs:
             badge_color=green
           fi
 
-          badge_url="https://img.shields.io/badge/coverage_${badge_content}-b_${branch_coverage}%25_m_${method_coverage}%25-${badge_color}?style=flat-square"
+          badge_url="https://img.shields.io/badge/coverage_${badge_content}-b_${branch_coverage}%25_l_${line_coverage}%25-${badge_color}?style=flat-square"
           echo "Badge URL: $badge_url"
           curl -o $(dirname $summary)/badge.svg "$badge_url"
         done
