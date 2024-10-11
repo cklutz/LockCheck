@@ -76,12 +76,15 @@ jobs:
         --framework ${{ inputs.tfm }}
         --configuration ${{ inputs.configuration }}
 
+    - name: Huh
+      run: echo ${{ env.LC_COVERAGE_TEST_OPTIONS }} / $LC_COVERAGE_TEST_OPTIONS / %LC_COVERAGE_TEST_OPTIONS%
+
     - name: Test
       run: >
         dotnet test
         --no-build
         --framework ${{ inputs.tfm }} 
-        $LC_COVERAGE_TEST_OPTIONS
+        ${{ env.LC_COVERAGE_TEST_OPTIONS }}
         --verbosity normal
         --configuration ${{ inputs.configuration }} 
         --logger trx 
