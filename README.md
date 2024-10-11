@@ -7,6 +7,12 @@ Uses platform APIs to find processes locking one or multiple files or directorie
 [![windows](https://github.com/cklutz/LockCheck/workflows/Windows/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AWindows)
 [![ubuntu](https://github.com/cklutz/LockCheck/workflows/Ubuntu/badge.svg)](https://github.com/cklutz/LockCheck/actions?query=workflow%3AUbuntu)
 
+<!-- coverage badges are static files, include "cache-control" in url to make sure they refresh; values same as for GitHub badge.svg on builds -->
+[![](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/ubuntu-net8.0-release)
+[![](https://cklutz.github.io/LockCheck/windows-net8.0-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net8.0-release)
+[![](https://cklutz.github.io/LockCheck/windows-net481-release/badge.svg?cache-control=max-age=300,private)](https://cklutz.github.io/LockCheck/windows-net481-release)
+
+
 ### Platforms
 
 ## Windows
