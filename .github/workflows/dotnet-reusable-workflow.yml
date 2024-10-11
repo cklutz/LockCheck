@@ -23,6 +23,7 @@ jobs:
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       LC_COVERAGE_EXCLUDE_CLASS_FILTER: ""
+      LC_PIVOT: ${{ inputs.tfm }}-${{ inputs.configuration }}
 
     steps:
     - name: Checkout
@@ -50,7 +51,7 @@ jobs:
         --verbosity normal
         --configuration ${{ inputs.configuration }} 
         --logger trx 
-        --results-directory "TestResults-${{ inputs.tfm }}-${{ inputs.configuration }}"
+        --results-directory "TestResults-${{ env.LC_PIVOT }}"
 
     - name: Prepare coverage settings
       run: |
@@ -65,8 +66,8 @@ jobs:
     - name: Generage coverage report
       uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
       with:
-        reports: '${{ github.workspace }}/TestResults-${{ inputs.tfm }}-${{ inputs.configuration }}/**/*.cobertura.xml'
-        targetdir: '${{ github.workspace }}/coveragereport'
+        reports: '${{ github.workspace }}/TestResults-${{ env.LC_PIVOT }}/**/*.cobertura.xml'
+        targetdir: '${{ github.workspace }}/coveragereport-${{ env.LC_PIVOT }}'
         reporttypes: 'Html;Html_Dark;Cobertura;MarkdownSummaryGithub;Badges;JsonSummary'
         assemblyfilters: '-*.Tests;-LCTestTarget*'
         classfilters: '${{ env.LC_COVERAGE_EXCLUDE_CLASS_FILTER }}'
@@ -75,14 +76,16 @@ jobs:
       if: ${{ inputs.configuration == 'Release' }}
   
     - name: Add coverage report to summary
-      run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+      run: cat $GITHUB_WORKSPACE/coveragereport-${{ env.LC_PIVOT }}/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
       shell: bash
       if: ${{ inputs.configuration == 'Release' }}
 
     - name: Update CodeCoverage badge
       run: |
         chmod +rx .github/workflows/update_gist.sh
-        .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f code-coverage-windows-${{ inputs.tfm }}-${{ inputs.configuration }}.svg $GITHUB_WORKSPACE/coveragereport/badge_combined.svg
+        .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f \
+          code-coverage-windows-${{ env.LC_PIVOT }}.svg \
+          $GITHUB_WORKSPACE/coveragereport-${{ env.LC_PIVOT }}/badge_combined.svg
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
@@ -91,9 +94,9 @@ jobs:
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ inputs.tfm }}-${{ inputs.configuration }}
+        name: test-results-${{ env.LC_PIVOT }}
         path: |
-          TestResults-${{ inputs.tfm }}-${{ inputs.configuration }}
-          coveragereport
+          TestResults-${{ env.LC_PIVOT }}
+          coveragereport-${{ env.LC_PIVOT }}
       # Use always() to always run this step to publish test results when there are test failures
       if: ${{ always() }}
