@@ -49,10 +49,10 @@ jobs:
             IFS=',' read -ra artifacts <<< "${spec[@]:1}"
             for i in "${artifacts[@]}"; do
                 artifact_id=$(echo $i | xargs)
-                artifact_subdir=$(echo $artifact_id | sed 's/coverage-report-//g')
+                artifact_subdir=$OUTPUT_DIR/$(echo $artifact_id | sed 's/coverage-report-//g')
 
                 echo "Downloading artifact '$artifact_id' for workflow '$workflow_id'"
-                gh run download $run_id -n $artifact_id -D $OUTPUT_DIR || exit 1
+                gh run download $run_id -n $artifact_id -D $artifact_subdir || exit 1
             done
         done
       env:
@@ -60,7 +60,7 @@ jobs:
         WF_SPEC: ${{ matrix.spec }}
         OUTPUT_DIR: coverage
     - name: Display
-      run: ls -l coverage
+      run: ls -lR coverage
     # - name: Setup Pages
     #   uses: actions/configure-pages@v5
     # - name: Upload Pages
