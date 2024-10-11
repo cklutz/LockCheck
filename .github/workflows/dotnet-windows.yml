@@ -1,88 +1,115 @@
 name: Windows
 
 on:
-  # Allow to use "gh.exe workflow run Windows --ref <branchname>" to trigger this workflow for arbitrary branches.
-  workflow_dispatch:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
-jobs:
-  build:
-    strategy:
-      # Set to "false" to continue running other jobs in matrix even if one fails
-      fail-fast: true
-      matrix:
-        configuration: [Debug, Release]
-        dotnet-version: ['8.0.x']
-        tfm: ['net8.0', 'net481']
-
-    runs-on: windows-latest
-
-    env:
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
-
-    - name: Setup .NET (64 bit)
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ matrix.dotnet-version }}
-
-    - name: Build
-      run: >
-        dotnet build 
-        --framework ${{ matrix.tfm }}
-        --configuration ${{ matrix.configuration }}
-
-    - name: Test
-      run: >
-        dotnet test
-        --no-build
-        --framework ${{ matrix.tfm }} 
-        --collect "Code Coverage;Format=Cobertura"
-        --verbosity normal
-        --configuration ${{ matrix.configuration }} 
-        --logger trx 
-        --results-directory "TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}"
-
-    - name: Generage coverage report
-      uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
-      with:
-        reports: '${{ github.workspace }}/TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}/**/*.cobertura.xml'
-        targetdir: '${{ github.workspace }}/coveragereport'
-        reporttypes: 'Html;Html_Dark;Cobertura;MarkdownSummaryGithub;Badges;JsonSummary'
-        assemblyfilters: '-*.Tests;-LCTestTarget*'
-        classfilters: '-*.Linux.*'
-        title: 'Results for ${{ matrix.tfm }}, ${{ matrix.configuration }}'
-        tag: '${{ github.run_number }}_${{ github.run_id }}'
-      if: ${{ matrix.configuration == 'Release' }}
+    # Allow to use "gh.exe workflow run Windows --ref <branchname>" to trigger this workflow for arbitrary branches.
+    workflow_dispatch:
+    push:
+      branches: [ master ]
+    pull_request:
+      branches: [ master ]
   
-    - name: Add coverage report to summary
-      run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
-      shell: bash
-      if: ${{ matrix.configuration == 'Release' }}
+jobs:
+    build:
+        runs-on: windows-latest
+        strategy:
+            matrix:
+                runs-on: ['windows-latest']
+                configuration: [Debug, Release]
+                dotnet-version: ['8.0.x']
+                tfm: ['net8.0', 'net481']
+        steps:
+            - name: Build
+              uses: ./.github/workflows/dotnet-reusable-workflow.yml
+              with:
+                dotnet-version: ${{ matrix.dotnet-version }}
+                configuration: ${{ matrix.configuration }}
+                tfm: ${{ matrix.tfm }}
 
-    - name: Update CodeCoverage badge
-      run: |
-        chmod +rx .github/workflows/update_gist.sh
-        .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}.svg $GITHUB_WORKSPACE/coveragereport/badge_combined.svg
-      shell: bash
-      env:
-        GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
-      if: ${{ github.ref_name == 'master' && matrix.configuration == 'Release' }}
+# name: Windows
 
-    - name: Upload dotnet test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-${{ matrix.tfm }}-${{ matrix.configuration }}
-        path: |
-          TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}
-          coveragereport
-      # Use always() to always run this step to publish test results when there are test failures
-      if: ${{ always() }}
+# on:
+#   # Allow to use "gh.exe workflow run Windows --ref <branchname>" to trigger this workflow for arbitrary branches.
+#   workflow_dispatch:
+#   push:
+#     branches: [ master ]
+#   pull_request:
+#     branches: [ master ]
+
+# jobs:
+#   build:
+#     strategy:
+#       # Set to "false" to continue running other jobs in matrix even if one fails
+#       fail-fast: true
+#       matrix:
+#         configuration: [Debug, Release]
+#         dotnet-version: ['8.0.x']
+#         tfm: ['net8.0', 'net481']
+
+#     runs-on: windows-latest
+
+#     env:
+#       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
+#     steps:
+#     - name: Checkout
+#       uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 0 # avoid shallow clone so that nbgv can do its work.
+
+#     - name: Setup .NET (64 bit)
+#       uses: actions/setup-dotnet@v4
+#       with:
+#         dotnet-version: ${{ matrix.dotnet-version }}
+
+#     - name: Build
+#       run: >
+#         dotnet build 
+#         --framework ${{ matrix.tfm }}
+#         --configuration ${{ matrix.configuration }}
+
+#     - name: Test
+#       run: >
+#         dotnet test
+#         --no-build
+#         --framework ${{ matrix.tfm }} 
+#         --collect "Code Coverage;Format=Cobertura"
+#         --verbosity normal
+#         --configuration ${{ matrix.configuration }} 
+#         --logger trx 
+#         --results-directory "TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}"
+
+#     - name: Generage coverage report
+#       uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
+#       with:
+#         reports: '${{ github.workspace }}/TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}/**/*.cobertura.xml'
+#         targetdir: '${{ github.workspace }}/coveragereport'
+#         reporttypes: 'Html;Html_Dark;Cobertura;MarkdownSummaryGithub;Badges;JsonSummary'
+#         assemblyfilters: '-*.Tests;-LCTestTarget*'
+#         classfilters: '-*.Linux.*'
+#         title: 'Results for ${{ matrix.tfm }}, ${{ matrix.configuration }}'
+#         tag: '${{ github.run_number }}_${{ github.run_id }}'
+#       if: ${{ matrix.configuration == 'Release' }}
+  
+#     - name: Add coverage report to summary
+#       run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+#       shell: bash
+#       if: ${{ matrix.configuration == 'Release' }}
+
+#     - name: Update CodeCoverage badge
+#       run: |
+#         chmod +rx .github/workflows/update_gist.sh
+#         .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}.svg $GITHUB_WORKSPACE/coveragereport/badge_combined.svg
+#       shell: bash
+#       env:
+#         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
+#       if: ${{ github.ref_name == 'master' && matrix.configuration == 'Release' }}
+
+#     - name: Upload dotnet test results
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: test-results-${{ matrix.tfm }}-${{ matrix.configuration }}
+#         path: |
+#           TestResults-${{ matrix.tfm }}-${{ matrix.configuration }}
+#           coveragereport
+#       # Use always() to always run this step to publish test results when there are test failures
+#       if: ${{ always() }}
