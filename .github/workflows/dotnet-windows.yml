@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     strategy:
+      # Set to "false" to continue running other jobs in matrix even if one fails
+      fail-fast: true
       matrix:
         configuration: [Debug, Release]
         dotnet-version: ['8.0.x']
@@ -59,10 +61,12 @@ jobs:
         classfilters: '-*.Linux.*'
         title: 'Results for ${{ matrix.tfm }}, ${{ matrix.configuration }}'
         tag: '${{ github.run_number }}_${{ github.run_id }}'
+      if: ${{ matrix.configuration == 'Release' }}
   
     - name: Add coverage report to summary
       run: cat $GITHUB_WORKSPACE/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
       shell: bash
+      if: ${{ matrix.configuration == 'Release' }}
 
     - name: Update CodeCoverage badge
       run: |
@@ -71,13 +75,7 @@ jobs:
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
-
-      # run: >
-      #   gh gist edit 9bd61dea93406219c4985641039c4e2f
-      #   -f code-coverage-windows-${{ matrix.tfm }}-${{ matrix.configuration }}.svg
-      #   ${{ github.workspace }}/coveragereport/badge_combined.svg
-      # env:
-      #   GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
+      if: ${{ github.ref_name == 'master' && matrix.configuration == 'Release' }}
 
     - name: Upload dotnet test results
       uses: actions/upload-artifact@v4
