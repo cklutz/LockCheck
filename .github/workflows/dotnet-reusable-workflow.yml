@@ -66,7 +66,6 @@ jobs:
         if [[ "${{ inputs.code-coverage }}" == "true" ]]; then
           echo "LC_COVERAGE_TEST_OPTIONS=--collect \"Code Coverage;Format=Cobertura\"" >> "$GITHUB_OUTPUT"
         fi
-        cat "$GITHUB_ENV"
       shell: bash
 
     - name: Build
@@ -75,17 +74,14 @@ jobs:
         --framework ${{ inputs.tfm }}
         --configuration ${{ inputs.configuration }}
 
-    - name: Huh
-      run: echo ${{ steps.configure.outputs.LC_COVERAGE_TEST_OPTIONS }}
-
     - name: Test
       run: >
         dotnet test
         --no-build
         --framework ${{ inputs.tfm }} 
+        --configuration ${{ inputs.configuration }} 
         ${{ steps.configure.outputs.LC_COVERAGE_TEST_OPTIONS }}
         --verbosity normal
-        --configuration ${{ inputs.configuration }} 
         --logger trx 
         --results-directory "TestResults-${{ env.LC_PIVOT }}"
 
@@ -93,7 +89,7 @@ jobs:
       uses: danielpalme/ReportGenerator-GitHub-Action@5.3.11
       with:
         reports: '${{ github.workspace }}/TestResults-${{ env.LC_PIVOT }}/**/*.cobertura.xml'
-        targetdir: '${{ github.workspace }}/coveragereport-${{ env.LC_PIVOT }}'
+        targetdir: '${{ github.workspace }}/CoverageReport-${{ env.LC_PIVOT }}'
         reporttypes: 'Html;Html_Dark;Cobertura;MarkdownSummaryGithub;Badges;JsonSummary'
         assemblyfilters: '-*.Tests;-LCTestTarget*'
         classfilters: '${{ steps.configure.outputs.LC_COVERAGE_EXCLUDE_CLASS_FILTER }}'
@@ -102,7 +98,7 @@ jobs:
       if: ${{ inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
   
     - name: Add coverage report to summary
-      run: cat $GITHUB_WORKSPACE/coveragereport-${{ env.LC_PIVOT }}/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+      run: cat $GITHUB_WORKSPACE/CoverageReport-${{ env.LC_PIVOT }}/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
       shell: bash
       if: ${{ inputs.code-coverage && inputs.configuration == inputs.code-coverage-configuration }}
 
@@ -111,18 +107,22 @@ jobs:
         chmod +rx .github/workflows/update_gist.sh
         .github/workflows/update_gist.sh 9bd61dea93406219c4985641039c4e2f \
           code-coverage-windows-${{ env.LC_PIVOT }}.svg \
-          $GITHUB_WORKSPACE/coveragereport-${{ env.LC_PIVOT }}/badge_combined.svg
+          $GITHUB_WORKSPACE/CoverageReport-${{ env.LC_PIVOT }}/badge_combined.svg
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.BADGE_GIST_TOKEN }}
       if: ${{ inputs.code-coverage && inputs.code-coverage-badge && inputs.configuration == inputs.code-coverage-configuration }}
 
-    - name: Upload dotnet test results
+    - name: Upload TestResults
       uses: actions/upload-artifact@v4
       with:
         name: test-results-${{ env.LC_PIVOT }}
-        path: |
-          TestResults-${{ env.LC_PIVOT }}
-          coveragereport-${{ env.LC_PIVOT }}
-      # Use always() to always run this step to publish test results when there are test failures
+        path: TestResults-${{ env.LC_PIVOT }}
       if: ${{ always() }}
+
+    - name: Upload CoverageReport
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-${{ env.LC_PIVOT }}
+        path: CoverageReport-${{ env.LC_PIVOT }}
+      if: ${{ always() && inputs.code-coverage }}

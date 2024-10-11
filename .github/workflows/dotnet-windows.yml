@@ -1,7 +1,6 @@
 name: Windows
 
 on:
-    # Allow to use "gh.exe workflow run Windows --ref <branchname>" to trigger this workflow for arbitrary branches.
     workflow_dispatch:
     push:
       branches: [ master ]
