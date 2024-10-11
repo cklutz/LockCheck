@@ -67,6 +67,7 @@ jobs:
         if [[ "${{ inputs.code-coverage }}" == "true" ]]; then
           echo "LC_COVERAGE_TEST_OPTIONS=--collect \"Code Coverage;Format=Cobertura\""
         fi
+        cat "$GITHUB_ENV"
       shell: bash
 
     - name: Build
@@ -80,7 +81,7 @@ jobs:
         dotnet test
         --no-build
         --framework ${{ inputs.tfm }} 
-        ${{ env.LC_COVERAGE_TEST_OPTIONS }}
+        $LC_COVERAGE_TEST_OPTIONS
         --verbosity normal
         --configuration ${{ inputs.configuration }} 
         --logger trx 
