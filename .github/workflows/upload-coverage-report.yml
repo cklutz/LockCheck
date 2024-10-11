@@ -33,7 +33,9 @@ jobs:
     - name: 'Download latest successful build artifact'
       run: |
         IFS='\n' read -ra wsspec <<< "${{ env.WORKFLOW_SPEC }}"
+        echo $wsspec
         for ispec in "${wsspec[@]}"; do
+            echo $ispec
             IFS=':' read -ra spec <<< "$ispec"
             workflow_id=$(echo ${spec[0]} | xargs)
 
