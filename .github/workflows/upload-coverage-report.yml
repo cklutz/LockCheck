@@ -58,7 +58,8 @@ jobs:
                     exit 1
                 fi
 
-                echo "Unzip artifact '${artifact_id}.zip' into '$OUTPUT_DIR/$artifact_subdir'"
+                ls -l $ARTIFACTS_TMP_DIR
+                echo "Unzip artifact '$ARTIFACTS_TMP_DIR/${artifact_id}.zip' into '$OUTPUT_DIR/$artifact_subdir'"
                 unzip $ARTIFACTS_TMP_DIR/${artifact_id}.zip -d $OUTPUT_DIR/$artifact_subdir
             done
         done
