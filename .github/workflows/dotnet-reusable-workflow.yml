@@ -54,12 +54,12 @@ jobs:
 
     - name: Prepare coverage settings
       run: |
-        if [[ "${${{ inputs.runs-on }},,}" == *"windows"* ]]; then
+        shopt -s nocasematch
+        if [[ "${{ inputs.runs-on }}" == *"windows"* ]]; then
           echo "::set-output LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Linux.*"
-        elif [[ "${${{ inputs.runs-on }},,}" == *"windows"* ]]; then
+        elif [[ "${{ inputs.runs-on }}" == *"ubuntu"* ]]; then
           echo "::set-output LC_COVERAGE_EXCLUDE_CLASS_FILTER=-*.Windows.*"
         fi
-
       shell: bash
 
     - name: Generage coverage report
