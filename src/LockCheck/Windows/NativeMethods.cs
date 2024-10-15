@@ -1,4 +1,6 @@
-﻿using System;
+using System;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -28,7 +30,6 @@ namespace LockCheck.Windows
         internal const int ERROR_SHARING_VIOLATION = 32;
         internal const int ERROR_LOCK_VIOLATION = 33;
         internal const int ERROR_CANCELLED = 1223;
-        internal const int ERROR_MR_MID_NOT_FOUND = 317;
 
         internal const uint STATUS_SUCCESS = 0;
         internal const uint STATUS_INFO_LENGTH_MISMATCH = 0xC0000004;
@@ -666,7 +667,7 @@ namespace LockCheck.Windows
             public short MaximumLength;
             public IntPtr Buffer;
 
-            public string GetEmptyBuffer() => new('\0', Length / 2);
+            public readonly string GetEmptyBuffer() => new('\0', Length / 2);
         }
 
         // for 32-bit process in a 64-bit OS only
@@ -689,7 +690,7 @@ namespace LockCheck.Windows
             public short MaximumLength;
             public long Buffer;
 
-            public string GetEmptyBuffer() => new('\0', Length / 2);
+            public readonly string GetEmptyBuffer() => new('\0', Length / 2);
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -699,7 +700,21 @@ namespace LockCheck.Windows
             public short MaximumLength;
             public int Buffer;
 
-            public string GetEmptyBuffer() => new('\0', Length / 2);
+            public readonly string GetEmptyBuffer() => new('\0', Length / 2);
         }
+
+
+        internal const int FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100;
+        internal const int FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
+        internal const int FORMAT_MESSAGE_FROM_STRING = 0x00000400;
+        internal const int FORMAT_MESSAGE_FROM_HMODULE = 0x00000800;
+        internal const int FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
+        internal const int FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000;
+
+#if NET
+        internal static string GetMessage(int errorCode) => $"{Marshal.GetPInvokeErrorMessage(errorCode)} (0x{errorCode:X8})";
+#else
+        internal static string GetMessage(int errorCode) => $"{new Win32Exception(errorCode).Message}  (0x{errorCode:X8})"; 
+#endif
     }
 }

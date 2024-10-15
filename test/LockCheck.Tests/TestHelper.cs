@@ -1,8 +1,10 @@
-﻿using System;
+using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -10,6 +12,40 @@ namespace LockCheck.Tests
 {
     internal static class TestHelper
     {
+        public static void RunWithInvariantCulture(Action action)
+            => RunWithCulture(CultureInfo.InvariantCulture, action);
+
+        public static void RunWithCulture(CultureInfo cultureInfo, Action action)
+        {
+            var oldUi = CultureInfo.CurrentUICulture;
+            var old = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentUICulture = cultureInfo;
+                CultureInfo.CurrentCulture = cultureInfo;
+
+                action();
+            }
+            finally
+            {
+                CultureInfo.CurrentUICulture = oldUi;
+                CultureInfo.CurrentCulture = old;
+            }
+        }
+
+        public static Windows.NativeMethods.FILETIME ToNativeFileTime(this DateTime dateTime)
+        {
+            // Convert DateTime to a long value representing the file time
+            long fileTime = dateTime.ToFileTime();
+
+            // Split the long value into high and low parts
+            Windows.NativeMethods.FILETIME fileTimeStruct;
+            fileTimeStruct.dwLowDateTime = (uint)(fileTime & 0xFFFFFFFF);
+            fileTimeStruct.dwHighDateTime = (uint)(fileTime >> 32);
+
+            return fileTimeStruct;
+        }
+
         public static void CreateLockSituation(Action<Exception, string> action)
         {
             string tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");

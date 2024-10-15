@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -69,7 +70,7 @@ namespace LockCheck.Windows
 
                     if (status != STATUS_SUCCESS)
                     {
-                        throw GetException(status, "NtQueryInformationFile", "Failed to get file process IDs");
+                        throw GetException(status);
                     }
 
                     // Buffer contains:
@@ -100,15 +101,10 @@ namespace LockCheck.Windows
             }
         }
 
-        private static NtException GetException(uint status, string apiName, string message)
+        internal static Win32Exception GetException(uint status)
         {
             int res = RtlNtStatusToDosError(status);
-            if (res == ERROR_MR_MID_NOT_FOUND)
-            {
-                return new NtException(status, $"{message} ({apiName}() status {status} (0x{status:8X})");
-            }
-
-            return new NtException(res, status, $"{message} ({apiName}() status {status} (0x{status:8X})");
+            return new Win32Exception(res, GetMessage(res));
         }
 
         internal static Dictionary<(int, DateTime), ProcessInfo> GetProcessesByWorkingDirectory(List<string> directories)
@@ -188,7 +184,7 @@ namespace LockCheck.Windows
 
                 if (status < 0)
                 {
-                    throw GetException((uint)status, "NtQuerySystemInformation", "Could not get process info");
+                    throw GetException((uint)status);
                 }
 
                 // Parse the data block to get process information

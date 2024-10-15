@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -11,7 +12,7 @@ namespace LockCheck.Tests
         [DataTestMethod]
         [DataRow(LockManagerFeatures.None)]
         [DataRow(LockManagerFeatures.UseLowLevelApi)]
-        public void LockInformationAvailable(LockManagerFeatures features)
+        public void GetLockingProcessInfos_ShouldReturnProcess_WhenHasLock(LockManagerFeatures features)
         {
             var process = Process.GetCurrentProcess();
 
@@ -37,7 +38,7 @@ namespace LockCheck.Tests
         [DataRow(LockManagerFeatures.None | LockManagerFeatures.CheckDirectories, false)]
         [DataRow(LockManagerFeatures.UseLowLevelApi | LockManagerFeatures.CheckDirectories, true)]
         [DataRow(LockManagerFeatures.UseLowLevelApi | LockManagerFeatures.CheckDirectories, false)]
-        public void LockInformationAvailableForDirectory(LockManagerFeatures features, bool target64Bit)
+        public void GetLockingProcessInfos_ShouldReturnProcess_WhenWorkingDirectoryMatches(LockManagerFeatures features, bool target64Bit)
         {
             if (!Environment.Is64BitOperatingSystem)
             {
@@ -52,7 +53,7 @@ namespace LockCheck.Tests
                     // Since "working directory" matches by path prefix, we might actually see multiple matches.
                     // Make sure we find at least the one we explicitly started.
                     var processInfo = processInfos.FirstOrDefault(pi => pi.ProcessId == args.ProcessId);
-                    Assert.IsNotNull(processInfo);
+                    Assert.IsNotNull(processInfo, $"Expected process with ID {args.ProcessId}/{args.ProcessName} not found as a match");
                     Assert.AreEqual(args.ProcessId, processInfo.ProcessId);
                     Assert.AreEqual(args.SessionId, processInfo.SessionId);
                     Assert.AreEqual(args.ProcessStartTime, processInfo.StartTime);
@@ -63,5 +64,34 @@ namespace LockCheck.Tests
                     StringAssert.Contains(processInfo.ExecutableName?.ToLowerInvariant(), args.ProcessName.ToLowerInvariant());
                 });
         }
+
+        [TestMethod]
+        public void GetLockingProcessInfos_ShouldThrowArgumentNullException_WhenPathsIsNull()
+        {
+            string[] paths = null;
+
+            Assert.ThrowsException<ArgumentNullException>(() => LockManager.GetLockingProcessInfos(paths));
+        }
+
+        [TestMethod]
+        public void GetLockingProcessInfos_ShouldReturnEmpty_WhenPathsIsEmpty()
+        {
+            string[] paths = [];
+
+            var result = LockManager.GetLockingProcessInfos(paths);
+
+            Assert.IsFalse(result.Any());
+        }
+
+        [TestMethod]
+        public void GetLockingProcessInfos_ShouldReturnEmpty_WhenFileDoesNotExist()
+        {
+            string[] paths = [Path.Combine(Path.GetTempPath(), "nonexistentfile.txt")];
+
+            var result = LockManager.GetLockingProcessInfos(paths);
+
+            Assert.IsFalse(result.Any());
+        }
+
     }
 }

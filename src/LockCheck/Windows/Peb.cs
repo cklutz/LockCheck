@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32.SafeHandles;
+using Microsoft.Win32.SafeHandles;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -196,8 +196,13 @@ namespace LockCheck.Windows
             var us = new UNICODE_STRING_32();
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
             {
-                if ((us.Buffer != 0) && (us.Length != 0))
+                if (us.Buffer != 0)
                 {
+                    if (us.Length == 0)
+                    {
+                        return string.Empty;
+                    }
+
                     string lpBuffer = us.GetEmptyBuffer();
                     if (SUCCEEDED(ReadProcessMemory(handle, new IntPtr(us.Buffer), lpBuffer, new IntPtr(us.Length), IntPtr.Zero), he))
                     {
@@ -229,8 +234,13 @@ namespace LockCheck.Windows
             var us = new UNICODE_STRING_WOW64();
             if (SUCCEEDED(NtWow64ReadVirtualMemory64(handle, pp + offset, ref us, Marshal.SizeOf(us), IntPtr.Zero), he))
             {
-                if ((us.Buffer != 0) && (us.Length != 0))
+                if (us.Buffer != 0)
                 {
+                    if (us.Length == 0)
+                    {
+                        return string.Empty;
+                    }
+
                     string lpBuffer = us.GetEmptyBuffer();
                     if (SUCCEEDED(NtWow64ReadVirtualMemory64(handle, us.Buffer, lpBuffer, us.Length, IntPtr.Zero), he))
                     {
@@ -260,8 +270,13 @@ namespace LockCheck.Windows
             var us = new UNICODE_STRING();
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
             {
-                if ((us.Buffer != IntPtr.Zero) && (us.Length != 0))
+                if (us.Buffer != IntPtr.Zero)
                 {
+                    if (us.Length == 0)
+                    {
+                        return string.Empty;
+                    }
+
                     string lpBuffer = us.GetEmptyBuffer();
                     if (SUCCEEDED(ReadProcessMemory(handle, us.Buffer, lpBuffer, new IntPtr(us.Length), IntPtr.Zero), he))
                     {
