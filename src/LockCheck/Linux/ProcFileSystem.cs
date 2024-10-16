@@ -295,33 +295,7 @@ namespace LockCheck.Linux
                             }
                         }
 
-                        // Removing ending '\0\0' from buffer. That is how /proc/<pid>/cmdline is documented to end.
-                        // We need to strip those to not get a phony, empty, trailing argv[argc-1] element.
-                        if (buffer[^1] == '\0' && buffer[^2] == '\0')
-                        {
-                            buffer = buffer.Slice(0, buffer.Length - 2);
-                        }
-
-                        // Individual argv elements in the buffer are separated by a null byte.
-                        int count = buffer.Count((byte)'\0') + 1;
-                        string[] args = new string[count];
-                        int start = 0;
-                        int p = 0;
-                        for (int i = 0; i < count; i++)
-                        {
-                            if (buffer[i] == '\0')
-                            {
-                                args[p++] = Encoding.UTF8.GetString(buffer.Slice(start, i - start));
-                            }
-                            start = i + 1;
-                        }
-
-                        if (start < buffer.Length)
-                        {
-                            args[p++] = Encoding.UTF8.GetString(buffer.Slice(start));
-                        }
-
-                        return args;
+                        return ConvertToArgs(ref buffer);
                     }
                 }
                 catch (IOException)
@@ -337,6 +311,47 @@ namespace LockCheck.Linux
             }
 
             return null;
+        }
+
+        internal static string[] ConvertToArgs(ref Span<byte> buffer)
+        {
+            if (buffer.IsEmpty)
+            {
+                return [];
+            }
+
+            // Removing ending '\0\0' from buffer. That is how /proc/<pid>/cmdline is documented to end.
+            // We need to strip those to not get a phony, empty, trailing argv[argc-1] element.
+            if (buffer[^1] == '\0' && buffer[^2] == '\0')
+            {
+                buffer = buffer.Slice(0, buffer.Length - 2);
+            }
+
+            if (buffer.IsEmpty)
+            {
+                return [];
+            }
+
+            // Individual argv elements in the buffer are separated by a null byte.
+            int count = buffer.Count((byte)'\0') + 1;
+            string[] args = new string[count];
+            int start = 0;
+            int p = 0;
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                if (buffer[i] == '\0')
+                {
+                    args[p++] = Encoding.UTF8.GetString(buffer.Slice(start, i - start));
+                    start = i + 1;
+                }
+            }
+
+            if (start < buffer.Length)
+            {
+                args[p++] = Encoding.UTF8.GetString(buffer.Slice(start));
+            }
+
+            return args;
         }
 
         internal static string GetProcessExecutablePath(int processId)
