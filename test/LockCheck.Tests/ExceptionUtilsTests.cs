@@ -19,28 +19,43 @@ namespace LockCheck.Tests
         }
 
         [TestMethod]
-        public void IsFileLockedRecognizesLock()
+        public void RethrowWithLockingInformation_ShouldThrowArgumentNullException_WhenFileNameIsNull()
         {
-            bool found = false;
-            TestHelper.CreateLockSituation((ex, fileName) =>
-            {
-                if (ex is IOException ioex)
-                {
-                    found = ioex.IsFileLocked();
-                }
-            });
+            Assert.ThrowsException<ArgumentNullException>(() => new Exception().RethrowWithLockingInformation((string)null));
+        }
 
-            Assert.IsTrue(found);
+        [TestMethod]
+        public void RethrowWithLockingInformation_ShouldThrowArgumentNullException_WhenFileNamesIsNull()
+        {
+            Assert.ThrowsException<ArgumentNullException>(() => new Exception().RethrowWithLockingInformation((string[])null));
+        }
+
+        [TestMethod]
+        public void RethrowWithLockingInformation_ShouldNotThrowIOException_WhenFileNamesIsEmpty()
+        {
+            Assert.IsFalse(new Exception().RethrowWithLockingInformation(Array.Empty<string>()));
+        }
+
+        [TestMethod]
+        public void RethrowWithLockingInformation_ShouldNotThrowIOException_WhenExceptionIsNotIOException()
+        {
+            Assert.IsFalse(new Exception().RethrowWithLockingInformation("test.txt"));
+        }
+
+        [TestMethod]
+        public void RethrowWithLockingInformation_ShouldNotThrowIOException_WhenIOExceptionIsNotDueToFileLock()
+        {
+            Assert.IsFalse(new IOException().RethrowWithLockingInformation("test.txt"));
         }
 
         [DataTestMethod]
         [DataRow(LockManagerFeatures.None)]
         [DataRow(LockManagerFeatures.UseLowLevelApi)]
-        public void RethrownExceptionContainsInformation(LockManagerFeatures features)
+        public void RethrowWithLockingInformation_ShouldRethrowWithLockingInformation_WhenLockIsFound(LockManagerFeatures features)
         {
             TestHelper.CreateLockSituation((ex, fileName) =>
             {
-                var processInfos = LockManager.GetLockingProcessInfos([ fileName], features).ToList();
+                var processInfos = LockManager.GetLockingProcessInfos([fileName], features).ToList();
                 Assert.AreEqual(1, processInfos.Count); // Sanity, has been tested in LockManagerTests
                 var expectedMessageContents = new StringBuilder();
 
@@ -66,6 +81,27 @@ namespace LockCheck.Tests
                     Assert.AreEqual(ex.HResult, re.HResult);
                 }
             });
+        }
+
+        [TestMethod]
+        public void IsFileLocked_ShouldThrowArgumentNullException_WhenExceptionIsNull()
+        {
+            Assert.ThrowsException<ArgumentNullException>(() => ((IOException)null).IsFileLocked());
+        }
+
+        [TestMethod]
+        public void IsFileLocked_ShouldReturnTrue_WhenFileIsLocked()
+        {
+            bool found = false;
+            TestHelper.CreateLockSituation((ex, fileName) =>
+            {
+                if (ex is IOException ioex)
+                {
+                    found = ioex.IsFileLocked();
+                }
+            });
+
+            Assert.IsTrue(found);
         }
     }
 }

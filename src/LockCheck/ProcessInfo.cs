@@ -76,9 +76,13 @@ namespace LockCheck
 
         public override int GetHashCode()
         {
+#if NET
+            return HashCode.Combine(ProcessId, StartTime);
+#else
             int h1 = ProcessId.GetHashCode();
             int h2 = StartTime.GetHashCode();
             return ((h1 << 5) + h1) ^ h2;
+#endif
         }
 
         public override bool Equals(object obj)
@@ -91,41 +95,28 @@ namespace LockCheck
             return false;
         }
 
-        public override string ToString() => ProcessId + "@" + StartTime.ToString("s");
+        public override string ToString() => ProcessId + "@" + StartTime.ToString("O");
 
         public string ToString(string format)
         {
-            if (format == null)
+            string baseFormat = ToString();
+
+            if (format != null)
             {
-                return ToString();
+                if (format == "F")
+                {
+                    return $"{baseFormat}/{ApplicationName}";
+                }
             }
 
-            if (format == "F")
-            {
-                return ToString() + "/" + ApplicationName;
-            }
-
-            if (format == "A")
-            {
-                var sb = new StringBuilder();
-                sb.Append(nameof(ProcessId)).Append(": ").Append(ProcessId).AppendLine();
-                sb.Append(nameof(StartTime)).Append(": ").Append(StartTime).AppendLine();
-                sb.Append(nameof(ExecutableName)).Append(": ").Append(ExecutableName).AppendLine();
-                sb.Append(nameof(ApplicationName)).Append(": ").Append(ApplicationName).AppendLine();
-                sb.Append(nameof(Owner)).Append(": ").Append(Owner).AppendLine();
-                sb.Append(nameof(ExecutableFullPath)).Append(": ").Append(ExecutableFullPath).AppendLine();
-                sb.Append(nameof(SessionId)).Append(": ").Append(SessionId).AppendLine();
-                sb.Append(nameof(LockType)).Append(": ").Append(LockType).AppendLine();
-                sb.Append(nameof(LockMode)).Append(": ").Append(LockMode).AppendLine();
-                sb.Append(nameof(LockAccess)).Append(": ").Append(LockAccess).AppendLine();
-                return sb.ToString();
-            }
-
-            return ToString();
+            return baseFormat;
         }
 
         public static void Format(StringBuilder sb, IEnumerable<ProcessInfo> lockers, IEnumerable<string> fileNames, int? maxProcesses = null, string ownerOverwrite = null)
         {
+            if (fileNames == null)
+                throw new ArgumentNullException(nameof(fileNames));
+
             if (lockers == null || !lockers.Any())
                 return;
 

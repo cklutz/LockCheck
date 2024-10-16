@@ -9,6 +9,7 @@ namespace LockCheck.Linux
     internal static partial class NativeMethods
     {
         public const int EAGAIN = 11; // Resource unavailable, try again (same value as EWOULDBLOCK),
+        public const int EACCES = 13; // Mandatory lock
         public const int EWOULDBLOCK = EAGAIN; // Operation would block.
         public const int ERANGE = 34;
        

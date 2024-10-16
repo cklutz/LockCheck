@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using static LockCheck.Windows.NativeMethods;
 #if NETFRAMEWORK
 using System.Reflection;
 #endif
@@ -74,6 +75,9 @@ namespace LockCheck
         /// </returns>
         public static bool RethrowWithLockingInformation(this Exception ex, string fileName, LockManagerFeatures features = default)
         {
+            if (fileName == null)
+                throw new ArgumentNullException(nameof(fileName));
+
             return RethrowWithLockingInformation(ex, [fileName], features);
         }
 
@@ -111,7 +115,10 @@ namespace LockCheck
         /// </returns>
         public static bool RethrowWithLockingInformation(this Exception ex, string[] fileNames, LockManagerFeatures features = default, int? maxProcesses = null)
         {
-            if (fileNames?.Length > 0)
+            if (fileNames == null)
+                throw new ArgumentNullException(nameof(fileNames));
+
+            if (fileNames.Length > 0)
             {
                 if (ex is IOException ioEx && ioEx.IsFileLocked())
                 {

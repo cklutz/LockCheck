@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net481</TargetFrameworks>
@@ -13,6 +13,13 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- Only include Linux sources, when targeting .NET "core". .NET Framework is not
+  supported on Linux anyway, and this safes us some #if/#endif juggling in the Linux
+  sources. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
+    <Compile Remove="Linux/**/*.cs"/>
   </ItemGroup>
 
   <ItemGroup>

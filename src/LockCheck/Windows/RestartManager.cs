@@ -23,7 +23,7 @@ namespace LockCheck.Windows
             uint handle;
             int res = NativeMethods.RmStartSession(out handle, 0, key);
             if (res != 0)
-                throw GetException(res, "RmStartSession", "Failed to begin restart manager session.");
+                throw GetException(res, "Failed to begin restart manager session");
 
             try
             {
@@ -42,7 +42,7 @@ namespace LockCheck.Windows
 
                 res = NativeMethods.RmRegisterResources(handle, (uint)files.Count, files.ToArray(), 0, null, 0, null);
                 if (res != 0)
-                    throw GetException(res, "RmRegisterResources", "Could not register resources.");
+                    throw GetException(res, "Could not register resources");
 
                 //
                 // Obtain the list of affected applications/services.
@@ -72,7 +72,7 @@ namespace LockCheck.Windows
                         if (pnProcInfo == 0)
                             return [];
 
-                        Debug.Assert(rgAffectedApps != null, "rgAffectedApps != null");
+                        Debug.Assert(rgAffectedApps != null);
                         var lockInfos = new HashSet<ProcessInfo>((int)pnProcInfo);
                         for (int i = 0; i < pnProcInfo; i++)
                         {
@@ -82,7 +82,7 @@ namespace LockCheck.Windows
                     }
 
                     if (res != NativeMethods.ERROR_MORE_DATA)
-                        throw GetException(res, "RmGetList", string.Format("Failed to get entries (retry {0}).", retry));
+                        throw GetException(res, $"Failed to get entries (retry {retry})");
 
                     pnProcInfo = pnProcInfoNeeded;
                     rgAffectedApps = new NativeMethods.RM_PROCESS_INFO[pnProcInfo];
@@ -92,52 +92,15 @@ namespace LockCheck.Windows
             {
                 res = NativeMethods.RmEndSession(handle);
                 if (res != 0)
-                    throw GetException(res, "RmEndSession", "Failed to end the restart manager session.");
+                    throw GetException(res, "Failed to end the restart manager session");
             }
 
             return [];
         }
 
-        private static Win32Exception GetException(int res, string apiName, string message)
+        internal static Win32Exception GetException(int res, string message)
         {
-            string reason;
-            switch (res)
-            {
-                case NativeMethods.ERROR_ACCESS_DENIED:
-                    reason = "Access is denied.";
-                    break;
-                case NativeMethods.ERROR_SEM_TIMEOUT:
-                    reason = "A Restart Manager function could not obtain a Registry write mutex in the allotted time. " +
-                             "A system restart is recommended because further use of the Restart Manager is likely to fail.";
-                    break;
-                case NativeMethods.ERROR_BAD_ARGUMENTS:
-                    reason = "One or more arguments are not correct. This error value is returned by the Restart Manager " +
-                             "function if a NULL pointer or 0 is passed in a parameter that requires a non-null and non-zero value.";
-                    break;
-                case NativeMethods.ERROR_MAX_SESSIONS_REACHED:
-                    reason = "The maximum number of sessions has been reached.";
-                    break;
-                case NativeMethods.ERROR_WRITE_FAULT:
-                    reason = "An operation was unable to read or write to the registry.";
-                    break;
-                case NativeMethods.ERROR_OUTOFMEMORY:
-                    reason = "A Restart Manager operation could not complete because not enough memory was available.";
-                    break;
-                case NativeMethods.ERROR_CANCELLED:
-                    reason = "The current operation is canceled by user.";
-                    break;
-                case NativeMethods.ERROR_MORE_DATA:
-                    reason = "More data is available.";
-                    break;
-                case NativeMethods.ERROR_INVALID_HANDLE:
-                    reason = "No Restart Manager session exists for the handle supplied.";
-                    break;
-                default:
-                    reason = string.Format("0x{0:x8}", res);
-                    break;
-            }
-
-            return new Win32Exception(res, string.Format("{0} ({1}() error {2}: {3})", message, apiName, res, reason));
+            return new Win32Exception(res, $"{message}: {NativeMethods.GetMessage(res)}");
         }
     }
 }

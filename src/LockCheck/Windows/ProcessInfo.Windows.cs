@@ -1,7 +1,5 @@
-﻿using System;
-using System.Diagnostics;
+using System;
 using System.IO;
-using System.Reflection.Emit;
 using Microsoft.Win32.SafeHandles;
 
 namespace LockCheck.Windows
