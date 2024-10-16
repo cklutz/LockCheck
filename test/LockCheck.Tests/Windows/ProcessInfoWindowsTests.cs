@@ -1,12 +1,9 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
-using LockCheck.Tests;
+using LockCheck.Windows;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LockCheck.Windows.Tests
+namespace LockCheck.Tests.Windows
 {
     [SupportedTestClassPlatform("windows")]
     public class ProcessInfoWindowsTests

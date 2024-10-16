@@ -24,5 +24,11 @@ namespace LockCheck.Tests.Linux
         {
             Assert.IsNull(ProcFileSystem.GetProcessExecutablePathFromCmdLine(-1));
         }
+
+        [TestMethod]
+        public void Test()
+        {
+
+        }
     }
 }
