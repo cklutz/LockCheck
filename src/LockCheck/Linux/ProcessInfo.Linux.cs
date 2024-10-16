@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 
 namespace LockCheck.Linux
@@ -36,50 +35,7 @@ namespace LockCheck.Linux
                 };
             }
 
-            ProcessInfoLinux result = null;
-
-            try
-            {
-                using (var process = Process.GetProcessById(li.ProcessId))
-                {
-                    result = new ProcessInfoLinux(li.ProcessId, process.StartTime)
-                    {
-                        SessionId  = process.SessionId,
-                        ApplicationName = process.ProcessName
-                    };
-
-                    if (process.MainModule != null)
-                    {
-                        result.ExecutableFullPath = process.MainModule.FileName;
-                        result.ExecutableName = Path.GetFileName(result.ExecutableFullPath);
-                    }
-                    else
-                    {
-                        // MainModule may be null, if no permissions, etc.
-                        // Using "readlink -f /proc/<pid>/exe" will also yield no results in this case.
-                        // However, "/proc/<pid>/cmdline" can work. So attempt to get the executable name from there.
-                        result.ExecutableFullPath = ProcFileSystem.GetProcessExecutablePathFromCmdLine(li.ProcessId) ?? process.ProcessName;
-                        result.ExecutableName = process.ProcessName;
-                    }
-                }
-            }
-            catch (ArgumentException)
-            {
-                // Process already gone/does not exist.
-            }
-
-            if (result != null)
-            {
-                // TryGetUid() fails if process is gone (because directory is gone);
-                // GetUserName() should not fail because it looks up information in
-                // passwd, which is not bound in lifetime to the process of course.
-                if (NativeMethods.TryGetUid($"/proc/{li.ProcessId}", out uint uid))
-                {
-                    result.Owner = NativeMethods.GetUserName(uid);
-                }
-            }
-
-            return result;
+            return Create(new ProcInfo(li.ProcessId));
         }
 
         private ProcessInfoLinux(int processId, DateTime startTime)

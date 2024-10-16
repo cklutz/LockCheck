@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
-using LockCheck.Tests;
+using LockCheck.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LockCheck.Windows.Tests
+namespace LockCheck.Tests.Windows
 {
     [SupportedTestClassPlatform("windows")]
     public class RestartManagerTests

@@ -1,8 +1,6 @@
-﻿using System;
+using System;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
-using static LockCheck.Linux.NativeMethods;
 
 namespace LockCheck.Linux
 {
@@ -45,7 +43,9 @@ namespace LockCheck.Linux
         {
             ProcessId = processId;
 
-            if (!Directory.Exists($"/proc/{processId}"))
+            // Note: this is up front check. The process could vanish at any time later
+            // while we attempt to get its properties.
+            if (!ProcFileSystem.Exists(processId))
             {
                 SetError();
                 return;
@@ -71,10 +71,10 @@ namespace LockCheck.Linux
         {
             try
             {
-                if (TryGetUid($"/proc/{pid}", out uint uid))
-                {
-                    return GetUserName(uid);
-                }
+                return ProcFileSystem.GetProcessOwner(pid);
+            }
+            catch (UnauthorizedAccessException)
+            {
             }
             catch (IOException)
             {
@@ -89,9 +89,22 @@ namespace LockCheck.Linux
         {
             try
             {
-                return File.ReadAllText($"/proc/{pid}/cmdline");
+                string[] args = ProcFileSystem.GetProcessCommandLineArgs(pid);
+
+                if (args == null)
+                {
+                    he.SetError();
+                    return null;
+                }
+
+                return string.Join(" ", args);
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException ex)
+            {
+                he.SetError(ex);
+                return null;
+            }
+            catch (IOException ex)
             {
                 he.SetError(ex);
                 return null;
@@ -102,9 +115,20 @@ namespace LockCheck.Linux
         {
             try
             {
-                return Directory.ResolveLinkTarget($"/proc/{pid}/cwd", true)?.FullName;
+                string cwd = ProcFileSystem.GetProcessCurrentDirectory(pid);
+
+                if (cwd == null)
+                {
+                    he.SetError();
+                }
+                return cwd;
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException ex)
+            {
+                he.SetError(ex);
+                return null;
+            }
+            catch (IOException ex)
             {
                 he.SetError(ex);
                 return null;
@@ -115,9 +139,26 @@ namespace LockCheck.Linux
         {
             try
             {
-                return File.ResolveLinkTarget($"/proc/{pid}/exe", true)?.FullName;
+                string name = ProcFileSystem.GetProcessExecutablePath(pid);
+
+                if (name == null)
+                {
+                    name = ProcFileSystem.GetProcessExecutablePathFromCmdLine(pid);
+                }
+
+                if (name == null)
+                {
+                    he.SetError();
+                }
+
+                return name;
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException ex)
+            {
+                he.SetError(ex);
+                return null;
+            }
+            catch (IOException ex)
             {
                 he.SetError(ex);
                 return null;
@@ -128,20 +169,24 @@ namespace LockCheck.Linux
         {
             try
             {
-                string fileName = $"/proc/{pid}/stat";
-                var content = File.ReadAllText(fileName).AsSpan().Trim();
+                int sessionId = ProcFileSystem.GetProcessSessionId(pid);
 
-                if (!int.TryParse(GetField(content, ' ', 5).Trim(), CultureInfo.InvariantCulture, out int sessionId))
+                if (sessionId == -1)
                 {
-                    throw new IOException($"Invalid session ID in '{fileName}': {content}");
+                    he.SetError();
                 }
 
                 return sessionId;
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException ex)
             {
                 he.SetError(ex);
-                return default;
+                return -1;
+            }
+            catch (IOException ex)
+            {
+                he.SetError(ex);
+                return -1;
             }
         }
 
@@ -149,33 +194,25 @@ namespace LockCheck.Linux
         {
             try
             {
-                // Apparently it is impossible to fully recreate the time that Process.StartTime calculates in 
-                // the background. It uses clock_gettime(CLOCK_BOOTTIME) (see https://github.com/dotnet/runtime/pull/83966)
-                // internally and calculates the start time relative to that using /proc/<pid>/stat.
-                // However we shave the yack, we get a different time than what Process.StartTime would return.
-                // Debugging has it, that this is due to the fact that we get a different "boot time" (later time).
-                // I'm not sure if that is a bug in the CLR or just a fact of life on Linux.
-                // In any case, we need to get the exact same Timestamp for our hash keys to work properly.
-                using var process = Process.GetProcessById(pid);
-                return process.StartTime;
+                var startTime = ProcFileSystem.GetProcessStartTime(pid);
+
+                if (startTime == default)
+                {
+                    he.SetError();
+                }
+
+                return startTime;
             }
-            catch (Exception ex)
+            catch (UnauthorizedAccessException ex)
             {
                 he.SetError(ex);
                 return default;
             }
-        }
-
-        private static ReadOnlySpan<char> GetField(ReadOnlySpan<char> content, char delimiter, int index)
-        {
-            int count = content.Count(delimiter) + 1;
-            Span<Range> ranges = count < 128 ? stackalloc Range[count] : new Range[count];
-            int num = MemoryExtensions.Split(content, ranges, delimiter);
-            if (index >= num)
+            catch (IOException ex)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), index, $"Cannot access field at index {index}, only {num} fields available.");
+                he.SetError(ex);
+                return default;
             }
-            return content[ranges[index]];
         }
     }
 }

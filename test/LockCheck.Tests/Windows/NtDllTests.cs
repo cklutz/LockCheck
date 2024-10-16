@@ -1,14 +1,11 @@
-using LockCheck.Tests;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
-using System.Text;
+using LockCheck.Windows;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LockCheck.Windows.Tests
+namespace LockCheck.Tests.Windows
 {
     [SupportedTestClassPlatform("windows")]
     public class NtDllTests

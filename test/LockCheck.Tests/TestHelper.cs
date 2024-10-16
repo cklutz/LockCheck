@@ -4,8 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 using System.Threading;
+using LockCheck.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LockCheck.Tests
@@ -33,13 +33,13 @@ namespace LockCheck.Tests
             }
         }
 
-        public static Windows.NativeMethods.FILETIME ToNativeFileTime(this DateTime dateTime)
+        public static NativeMethods.FILETIME ToNativeFileTime(this DateTime dateTime)
         {
             // Convert DateTime to a long value representing the file time
             long fileTime = dateTime.ToFileTime();
 
             // Split the long value into high and low parts
-            Windows.NativeMethods.FILETIME fileTimeStruct;
+            NativeMethods.FILETIME fileTimeStruct;
             fileTimeStruct.dwLowDateTime = (uint)(fileTime & 0xFFFFFFFF);
             fileTimeStruct.dwHighDateTime = (uint)(fileTime >> 32);
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using LockCheck.Windows;
@@ -60,7 +60,6 @@ namespace LockCheck
             // Linux sources are only build when building for .NET, not for .NET Framework.
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-
                 processInfos = ProcFileSystem.GetLockingProcessInfos(paths, ref directories);
 
                 if (directories?.Count > 0)
