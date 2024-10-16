@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 
@@ -48,9 +48,6 @@ namespace LockCheck.Linux
                         ApplicationName = process.ProcessName
                     };
 
-                    // MainModule may be null, if no permissions, etc.
-                    // Note: alternative of "readlink -f /proc/<pid>/exe" will
-                    // also yield results in this case.
                     if (process.MainModule != null)
                     {
                         result.ExecutableFullPath = process.MainModule.FileName;
@@ -58,7 +55,10 @@ namespace LockCheck.Linux
                     }
                     else
                     {
-                        result.ExecutableFullPath = process.ProcessName;
+                        // MainModule may be null, if no permissions, etc.
+                        // Using "readlink -f /proc/<pid>/exe" will also yield no results in this case.
+                        // However, "/proc/<pid>/cmdline" can work. So attempt to get the executable name from there.
+                        result.ExecutableFullPath = ProcFileSystem.GetProcessExecutablePathFromCmdLine(li.ProcessId) ?? process.ProcessName;
                         result.ExecutableName = process.ProcessName;
                     }
                 }

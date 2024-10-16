@@ -1,7 +1,10 @@
-﻿using System;
+using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text;
 
 namespace LockCheck.Linux
 {
@@ -102,6 +105,64 @@ namespace LockCheck.Linux
             }
 
             return inodesToPaths;
+        }
+
+        internal static string GetProcessExecutablePathFromCmdLine(int processId)
+        {
+            byte[] rentedBuffer = null;
+            try
+            {
+                using (var file = new FileStream($"/proc/{processId}/cmdline", FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1, useAsync: false))
+                {
+                    Span<byte> buffer = stackalloc byte[256];
+                    int bytesRead = 0;
+                    while (true)
+                    {
+                        if (bytesRead == buffer.Length)
+                        {
+                            // Resize buffer
+                            uint newLength = (uint)buffer.Length * 2;
+                            // Store what was read into new buffer
+                            byte[] tmp = ArrayPool<byte>.Shared.Rent((int)newLength);
+                            buffer.CopyTo(tmp);
+                            // Remember current "rented" buffer (might be null)
+                            byte[] lastRentedBuffer = rentedBuffer;
+                            // From now on, we did rent a buffer. And it will be used for further reads.
+                            buffer = tmp;
+                            rentedBuffer = tmp;
+                            // Return previously rented buffer, if any.
+                            if (lastRentedBuffer != null)
+                            {
+                                ArrayPool<byte>.Shared.Return(lastRentedBuffer);
+                            }
+                        }
+
+                        Debug.Assert(bytesRead < buffer.Length);
+                        int n = file.Read(buffer.Slice(bytesRead));
+                        bytesRead += n;
+
+                        // "/proc/<pid>/cmdline" contains the original argument vector (argv), where each part is separated by a null byte.
+                        // See if we have read enough for argv[0], which contains the process name.
+                        ReadOnlySpan<byte> argRemainder = buffer.Slice(0, bytesRead);
+                        int argEnd = argRemainder.IndexOf((byte)'\0');
+                        if (argEnd != -1)
+                        {
+                            return Encoding.UTF8.GetString(argRemainder.Slice(0, argEnd));
+                        }
+                    }
+                }
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+            finally
+            {
+                if (rentedBuffer != null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedBuffer);
+                }
+            }
         }
     }
 }
