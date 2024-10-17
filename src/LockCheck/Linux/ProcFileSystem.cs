@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -64,12 +65,12 @@ namespace LockCheck.Linux
             }
         }
 
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string> directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, [NotNullIfNotNull(nameof(directories))] ref List<string>? directories)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));
 
-            Dictionary<long, string> inodesToPaths = null;
+            Dictionary<long, string>? inodesToPaths = null;
             var result = new HashSet<ProcessInfo>();
 
             var xpaths = new HashSet<string>(paths.Length, StringComparer.Ordinal);
@@ -88,7 +89,7 @@ namespace LockCheck.Linux
 
             using (var reader = new StreamReader("/proc/locks"))
             {
-                string line;
+                string? line;
                 while ((line = reader.ReadLine()) != null)
                 {
                     if (inodesToPaths == null)
@@ -194,7 +195,7 @@ namespace LockCheck.Linux
 
         internal static bool Exists(int processId) => TryGetProcPid(processId, out var procPid) && Directory.Exists(GetProcDir(procPid));
 
-        internal static string GetProcessOwner(int processId)
+        internal static string? GetProcessOwner(int processId)
         {
             if (TryGetProcPid(processId, out var procPid))
             {
@@ -249,7 +250,7 @@ namespace LockCheck.Linux
             return sessionId;
         }
 
-        internal static string GetProcessCurrentDirectory(int processId)
+        internal static string? GetProcessCurrentDirectory(int processId)
         {
             if (TryGetProcPid(processId, out ProcPid procPid))
             {
@@ -259,11 +260,11 @@ namespace LockCheck.Linux
             return null;
         }
 
-        internal static string[] GetProcessCommandLineArgs(int processId, int maxArgs = -1)
+        internal static string[]? GetProcessCommandLineArgs(int processId, int maxArgs = -1)
         {
             if (TryGetProcPid(processId, out ProcPid procPid))
             {
-                byte[] rentedBuffer = null;
+                byte[]? rentedBuffer = null;
                 try
                 {
                     using (var file = new FileStream(GetProcCmdline(procPid), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1, useAsync: false))
@@ -280,7 +281,7 @@ namespace LockCheck.Linux
                                 byte[] tmp = ArrayPool<byte>.Shared.Rent((int)newLength);
                                 buffer.CopyTo(tmp);
                                 // Remember current "rented" buffer (might be null)
-                                byte[] lastRentedBuffer = rentedBuffer;
+                                byte[]? lastRentedBuffer = rentedBuffer;
                                 // From now on, we did rent a buffer. And it will be used for further reads.
                                 buffer = tmp;
                                 rentedBuffer = tmp;
@@ -365,7 +366,7 @@ namespace LockCheck.Linux
             return args;
         }
 
-        internal static string GetProcessExecutablePath(int processId)
+        internal static string? GetProcessExecutablePath(int processId)
         {
             if (TryGetProcPid(processId, out ProcPid procPid))
             {
@@ -375,12 +376,12 @@ namespace LockCheck.Linux
             return null;
         }
 
-        internal static string GetProcessExecutablePathFromCmdLine(int processId)
+        internal static string? GetProcessExecutablePathFromCmdLine(int processId)
         {
             // This is a little more expensive than a specific function only reading up to argv[0] from /proc/<pid>/cmdline
             // would be - GetProcessCommandLineArgs() reads all arguments, but then only converts "maxArgs" of them to an
             // actual System.String. On the other hand it saves quite some code duplication.
-            string[] args = GetProcessCommandLineArgs(processId, maxArgs: 1);
+            string[]? args = GetProcessCommandLineArgs(processId, maxArgs: 1);
             return args?.Length > 0 ? args[0] : null;
         }
 

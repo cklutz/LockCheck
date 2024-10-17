@@ -14,7 +14,7 @@ namespace LockCheck.Tests.Windows
         public void GetLockingProcessInfos_ShouldThrowArgumentNullException_WhenPathsIsNull()
         {
             var directories = new List<string>();
-            Assert.ThrowsException<ArgumentNullException>(() => NtDll.GetLockingProcessInfos(null, ref directories));
+            Assert.ThrowsException<ArgumentNullException>(() => NtDll.GetLockingProcessInfos(null!, ref directories));
         }
 
         [TestMethod]
@@ -63,14 +63,14 @@ namespace LockCheck.Tests.Windows
         public void GetLockingProcessInfo_ShouldThrowArgumentNullException_WhenPathsIsNull()
         {
             var directories = new List<string>();
-            Assert.ThrowsException<ArgumentNullException>(() => NtDll.GetLockingProcessInfos(null, ref directories));
+            Assert.ThrowsException<ArgumentNullException>(() => NtDll.GetLockingProcessInfos(null!, ref directories));
         }
 
         [TestMethod]
         public void GetLockingProcessInfo_ShouldThrowArgumentNullException_WhenAPathIsNull()
         {
             var directories = new List<string>();
-            Assert.ThrowsException<ArgumentNullException>(() => NtDll.GetLockingProcessInfos([null], ref directories));
+            Assert.ThrowsException<ArgumentNullException>(() => NtDll.GetLockingProcessInfos([null!], ref directories));
         }
 
         [TestMethod]

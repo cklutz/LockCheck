@@ -13,7 +13,7 @@ namespace LockCheck.Tests
 
         public string PlatformName { get; }
 
-        public override TestMethodAttribute GetTestMethodAttribute(TestMethodAttribute testMethodAttribute)
+        public override TestMethodAttribute? GetTestMethodAttribute(TestMethodAttribute? testMethodAttribute)
         {
             if (testMethodAttribute is SupportedTestMethodPlatformAttribute ta)
             {
@@ -26,14 +26,14 @@ namespace LockCheck.Tests
 
     public sealed class SupportedTestMethodPlatformAttribute : TestMethodAttribute
     {
-        private readonly TestMethodAttribute _attr;
+        private readonly TestMethodAttribute? _attr;
 
         public SupportedTestMethodPlatformAttribute(string platformName)
         {
             PlatformName = platformName;
         }
 
-        public SupportedTestMethodPlatformAttribute(TestMethodAttribute attr, string platformName)
+        public SupportedTestMethodPlatformAttribute(TestMethodAttribute? attr, string platformName)
             : this(platformName)
         {
             _attr = attr;

@@ -5,9 +5,9 @@ namespace LockCheck.Linux
 {
     internal class LockInfo
     {
-        public string LockType { get; private set; }
-        public string LockMode { get; private set; }
-        public string LockAccess { get; private set; }
+        public string? LockType { get; private set; }
+        public string? LockMode { get; private set; }
+        public string? LockAccess { get; private set; }
         public int ProcessId { get; private set; }
         public InodeInfo InodeInfo { get; private set; }
 

@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net481</TargetFrameworks>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -18,7 +17,7 @@
   <!-- Only include Linux sources, when targeting .NET "core". .NET Framework is not
   supported on Linux anyway, and this safes us some #if/#endif juggling in the Linux
   sources. -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
+  <ItemGroup Condition="'$(IsNetFramework)' == 'true'">
     <Compile Remove="Linux/**/*.cs"/>
   </ItemGroup>
 
@@ -28,7 +27,7 @@
     <!-- These need to exist in their respective output folder, but we don't reference the output assemblies here. -->
     <ProjectReference Include="..\LCTestTarget.win-x86\LCTestTarget.win-x86.csproj" ReferenceOutputAssembly="false" Private="false" />
     <ProjectReference Include="..\LCTestTarget.win-x64\LCTestTarget.win-x64.csproj" ReferenceOutputAssembly="false" Private="false" />
-    <ProjectReference Include="..\LCTestTarget.linux-x64\LCTestTarget.linux-x64.csproj" ReferenceOutputAssembly="false" Private="false" Condition="'$(TargetFramework)' != 'net481'" />
+    <ProjectReference Include="..\LCTestTarget.linux-x64\LCTestTarget.linux-x64.csproj" ReferenceOutputAssembly="false" Private="false" Condition="'$(IsNetFramework)' != 'true'" />
   </ItemGroup>
 
 </Project>

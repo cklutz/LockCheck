@@ -13,24 +13,24 @@ namespace LockCheck.Windows
     {
 #if DEBUG
 #pragma warning disable IDE0052
-        private string _errorStack;
-        private Exception _errorCause;
+        private string? _errorStack;
+        private Exception? _errorCause;
         private int _errorCode;
 #pragma warning restore IDE0052
 #endif
 
         public int ProcessId { get; private set; }
         public int SessionId { get; private set; }
-        public string CommandLine { get; private set; }
-        public string CurrentDirectory { get; private set; }
-        public string WindowTitle { get; private set; }
-        public string ExecutableFullPath { get; private set; }
-        public string DesktopInfo { get; private set; }
-        public string Owner { get; private set; }
+        public string? CommandLine { get; private set; }
+        public string? CurrentDirectory { get; private set; }
+        public string? WindowTitle { get; private set; }
+        public string? ExecutableFullPath { get; private set; }
+        public string? DesktopInfo { get; private set; }
+        public string? Owner { get; private set; }
         public DateTime StartTime { get; private set; }
         public bool HasError { get; private set; }
 
-        public void SetError(Exception ex = null, int errorCode = 0)
+        public void SetError(Exception? ex = null, int errorCode = 0)
         {
             if (!HasError)
             {
@@ -190,7 +190,7 @@ namespace LockCheck.Windows
             return default;
         }
 
-        private static string GetStringTarget32(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
+        private static string? GetStringTarget32(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
         {
             var us = new UNICODE_STRING_32();
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
@@ -226,7 +226,7 @@ namespace LockCheck.Windows
             return default;
         }
 
-        private static string GetStringTarget64(SafeProcessHandle handle, long pp, int offset, Peb he)
+        private static string? GetStringTarget64(SafeProcessHandle handle, long pp, int offset, Peb he)
         {
             var us = new UNICODE_STRING_WOW64();
             if (SUCCEEDED(NtWow64ReadVirtualMemory64(handle, pp + offset, ref us, Marshal.SizeOf(us), IntPtr.Zero), he))
@@ -260,7 +260,7 @@ namespace LockCheck.Windows
             return 0;
         }
 
-        private static string GetString(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
+        private static string? GetString(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
         {
             var us = new UNICODE_STRING();
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
@@ -286,7 +286,7 @@ namespace LockCheck.Windows
         /// <summary>
         /// Checks if <paramref name="status"/> is success, otherwise sets <c><paramref name="he"/>.SetError(errorCode: <paramref name="status"/>)</c>.
         /// </summary>
-        private static bool SUCCEEDED(uint status, Peb he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        private static bool SUCCEEDED(uint status, Peb he, [CallerMemberName] string? callerName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (status != STATUS_SUCCESS)
             {
@@ -300,7 +300,7 @@ namespace LockCheck.Windows
         /// <summary>
         /// Checks if <paramref name="status"/> is success, otherwise sets <c><paramref name="he"/>.SetError(errorCode: <paramref name="status"/>)</c>.
         /// </summary>
-        private static bool SUCCEEDED(int status, Peb he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        private static bool SUCCEEDED(int status, Peb he, [CallerMemberName] string? callerName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (status != STATUS_SUCCESS)
             {
@@ -314,7 +314,7 @@ namespace LockCheck.Windows
         /// <summary>
         /// Checks if <paramref name="status"/> is success, otherwise sets <c><paramref name="he"/>.SetError(errorCode: <see cref="Marshal.GetLastWin32Error()"/>)</c>.
         /// </summary>
-        private static bool SUCCEEDED(bool result, Peb he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        private static bool SUCCEEDED(bool result, Peb he, [CallerMemberName] string? callerName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (!result)
             {

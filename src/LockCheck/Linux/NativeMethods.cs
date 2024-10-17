@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -12,7 +13,7 @@ namespace LockCheck.Linux
         public const int EACCES = 13; // Mandatory lock
         public const int EWOULDBLOCK = EAGAIN; // Operation would block.
         public const int ERANGE = 34;
-       
+
         public static long GetInode(string path)
         {
             if (Stat(path, out var status) >= 0)
@@ -35,9 +36,9 @@ namespace LockCheck.Linux
             return false;
         }
 
-        public static string GetUserName(uint uid)
+        public static string? GetUserName(uint uid)
         {
-            string userName;
+            string? userName;
             unsafe
             {
                 const int BufLen = Passwd.InitialBufferSize;
@@ -63,29 +64,26 @@ namespace LockCheck.Linux
             }
         }
 
-        private static unsafe bool TryGetUserName(uint uid, byte* buf, int bufLen, out string userName)
+        private static unsafe bool TryGetUserName(uint uid, byte* buf, int bufLen, out string? userName)
         {
             int error = GetPwUidR(uid, out Passwd passwd, buf, bufLen);
 
-            if (error == 0)
+            // positive error number returned -> failure other than entry-not-found
+            if (error != 0)
             {
-                userName = Marshal.PtrToStringAnsi((IntPtr)passwd.Name);
-                return true;
+                userName = null;
+                return false;
             }
 
+            // entry not found
             if (error == -1)
             {
                 userName = null;
                 return true;
             }
 
-            if (error == ERANGE)
-            {
-                userName = null;
-                return false;
-            }
-
-            throw new IOException($"Couldn't get user name for '{uid}' (errno = {error})");
+            userName = Marshal.PtrToStringAnsi((IntPtr)passwd.Name);
+            return true;
         }
 
         private const string SystemNative = "System.Native";

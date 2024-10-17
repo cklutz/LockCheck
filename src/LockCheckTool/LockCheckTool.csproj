@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net481</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <IsPackable Condition="'$(TargetFramework)' != 'net8.0'">false</IsPackable>
   </PropertyGroup>

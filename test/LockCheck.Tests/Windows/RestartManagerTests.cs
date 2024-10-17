@@ -13,7 +13,7 @@ namespace LockCheck.Tests.Windows
         public void GetLockingProcessInfos_ShouldThrowArgumentNullException_WhenPathsIsNull()
         {
             var directories = new List<string>();
-            Assert.ThrowsException<ArgumentNullException>(() => RestartManager.GetLockingProcessInfos(null, ref directories));
+            Assert.ThrowsException<ArgumentNullException>(() => RestartManager.GetLockingProcessInfos(null!, ref directories));
         }
 
         [TestMethod]

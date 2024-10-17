@@ -21,6 +21,6 @@ namespace LockCheck
         /// </remarks>
         /// <param name="ex">An optional exception that caused the error.</param>
         /// <param name="errorCode">An option error code that describes the error.</param>
-        void SetError(Exception ex = null, int errorCode = 0);
+        void SetError(Exception? ex = null, int errorCode = 0);
     }
 }
