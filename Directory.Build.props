@@ -1,8 +1,18 @@
 <Project>
-
   <PropertyGroup>
+    <TargetFrameworks>net8.0;net481</TargetFrameworks>
+
+    <Nullable Condition="'$(TargetFramework)' == 'net8.0'">enable</Nullable>
+    <Nullable Condition="'$(TargetFramework)' == 'net481'">annotations</Nullable>
+
+    <IsNetFramework>false</IsNetFramework>
+    <IsNetFramework Condition="'$(TargetFramework)' == 'net481'">true</IsNetFramework>
+    
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CA1031;CA1303;CA1416;CA1801;CA1716;NU5105</NoWarn>
+    <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
+    
     <DebugType>embedded</DebugType>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
-
 </Project>

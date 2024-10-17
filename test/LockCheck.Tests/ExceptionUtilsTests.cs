@@ -13,7 +13,7 @@ namespace LockCheck.Tests
         [TestMethod]
         public void CorePlatformThrowsIOExceptionOnLock()
         {
-            IOException lockException = null;
+            IOException? lockException = null;
             TestHelper.CreateLockSituation((ex, fileName) => lockException = ex as IOException);
             Assert.IsNotNull(lockException);
         }
@@ -21,13 +21,13 @@ namespace LockCheck.Tests
         [TestMethod]
         public void RethrowWithLockingInformation_ShouldThrowArgumentNullException_WhenFileNameIsNull()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => new Exception().RethrowWithLockingInformation((string)null));
+            Assert.ThrowsException<ArgumentNullException>(() => new Exception().RethrowWithLockingInformation((string)null!));
         }
 
         [TestMethod]
         public void RethrowWithLockingInformation_ShouldThrowArgumentNullException_WhenFileNamesIsNull()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => new Exception().RethrowWithLockingInformation((string[])null));
+            Assert.ThrowsException<ArgumentNullException>(() => new Exception().RethrowWithLockingInformation((string[])null!));
         }
 
         [TestMethod]
@@ -86,7 +86,7 @@ namespace LockCheck.Tests
         [TestMethod]
         public void IsFileLocked_ShouldThrowArgumentNullException_WhenExceptionIsNull()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => ((IOException)null).IsFileLocked());
+            Assert.ThrowsException<ArgumentNullException>(() => ((IOException)null!).IsFileLocked());
         }
 
         [TestMethod]

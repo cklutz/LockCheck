@@ -24,7 +24,7 @@ namespace LockCheck.Tests
                 Assert.AreEqual(process.SessionId, processInfos[0].SessionId);
                 Assert.AreEqual(process.StartTime, processInfos[0].StartTime);
                 Assert.IsNotNull(processInfos[0].ApplicationName);
-                Assert.AreEqual(process.MainModule.FileName.ToLowerInvariant(), processInfos[0].ExecutableFullPath?.ToLowerInvariant());
+                Assert.AreEqual(process.MainModule!.FileName.ToLowerInvariant(), processInfos[0].ExecutableFullPath?.ToLowerInvariant());
                 // Might contain domain, computer name, etc. in SAM form
                 StringAssert.Contains(processInfos[0].Owner?.ToLowerInvariant(), Environment.UserName.ToLowerInvariant());
                 // Might have an .exe suffix or not.
@@ -68,9 +68,7 @@ namespace LockCheck.Tests
         [TestMethod]
         public void GetLockingProcessInfos_ShouldThrowArgumentNullException_WhenPathsIsNull()
         {
-            string[] paths = null;
-
-            Assert.ThrowsException<ArgumentNullException>(() => LockManager.GetLockingProcessInfos(paths));
+            Assert.ThrowsException<ArgumentNullException>(() => LockManager.GetLockingProcessInfos(null!));
         }
 
         [TestMethod]

@@ -83,7 +83,7 @@ namespace LockCheck.Tests
             int sleep = 0; // forever
             int wait = 20; // seconds
 
-            Process process = null;
+            Process? process = null;
             var tempDir = new DirectoryInfo(tempDirectoryName);
             try
             {
@@ -97,7 +97,7 @@ namespace LockCheck.Tests
                     RedirectStandardError = true
                 };
 
-                string clientFullPath = GetClientFullPath(target64Bit, out string hostExecutable);
+                string clientFullPath = GetClientFullPath(target64Bit, out string? hostExecutable);
                 if (hostExecutable != null)
                 {
                     si.FileName = hostExecutable;
@@ -147,7 +147,7 @@ namespace LockCheck.Tests
                     {
                         using (var reader = new StreamReader(server))
                         {
-                            string message = reader.ReadLine();
+                            string? message = reader.ReadLine();
                             Console.WriteLine($"Test target send: {message}");
                         }
 
@@ -159,7 +159,7 @@ namespace LockCheck.Tests
             {
                 try
                 {
-                    Console.WriteLine($"Killing test target process with process ID {process.Id} ...");
+                    Console.WriteLine($"Killing test target process with process ID {process?.Id} ...");
                     process?.Kill();
                     process?.WaitForExit();
                     Console.WriteLine("Process killed.");
@@ -177,7 +177,7 @@ namespace LockCheck.Tests
             }
         }
 
-        private static string GetClientFullPath(bool target64Bit, out string hostExecutable)
+        private static string GetClientFullPath(bool target64Bit, out string? hostExecutable)
         {
             string runtimeIdentifier;
             string extension;
@@ -236,7 +236,7 @@ namespace LockCheck.Tests
             string tempDirectoryName = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
             const string sentinel = "TEST_READY";
 
-            Process process = null;
+            Process? process = null;
             var tempDir = new DirectoryInfo(tempDirectoryName);
             try
             {
@@ -296,7 +296,7 @@ namespace LockCheck.Tests
             {
                 try
                 {
-                    Console.WriteLine($"KILL IT .... {process.Id}");
+                    Console.WriteLine($"KILL IT .... {process?.Id}");
                     process?.Kill();
                     process?.WaitForExit();
                     Console.WriteLine("KILLED IT.");

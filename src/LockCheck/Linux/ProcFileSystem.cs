@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -64,7 +65,7 @@ namespace LockCheck.Linux
             }
         }
 
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string>? directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, [NotNullIfNotNull(nameof(directories))] ref List<string>? directories)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));

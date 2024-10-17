@@ -13,7 +13,11 @@ namespace LockCheck.Windows
 {
     internal static class NtDll
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string>? directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths,
+#if NET
+            [NotNullIfNotNull(nameof(directories))]
+#endif
+            ref List<string>? directories)
         {
             if (paths == null)
             {

@@ -1,10 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net481</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Nullable Condition="'$(TargetFramework)' == 'net8.0'">enable</Nullable>
-    <Nullable Condition="'$(TargetFramework)' == 'net481'">annotations</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -16,21 +14,18 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>file locks</PackageTags>
     <PackageProjectUrl>https://github.com/cklutz/LockCheck</PackageProjectUrl>
-    <!-- All options: https://github.com/dotnet/designs/blob/master/accepted/diagnostics/debugging-with-symbols-and-sources.md -->
-    <DebugType>Embedded</DebugType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);CA1031;CA1303;CA1416;CA1801;CA1716;NU5105</NoWarn>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 
   <!-- Only include Linux sources, when targeting .NET "core". .NET Framework is not
   supported on Linux anyway, and this safes us some #if/#endif juggling in the Linux
   sources. -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net481'">
+  <ItemGroup Condition="'$(IsNetFramework)' == 'true'">
     <Compile Remove="Linux/**/*.cs"/>
   </ItemGroup>
 

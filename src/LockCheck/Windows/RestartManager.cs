@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,7 +11,11 @@ namespace LockCheck.Windows
 {
     internal static class RestartManager
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string>? directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths,
+#if NET
+            [NotNullIfNotNull(nameof(directories))]
+#endif
+            ref List<string>? directories)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));

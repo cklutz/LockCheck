@@ -71,7 +71,7 @@ namespace LockCheck.Tests
         public void Format_ShouldReturnEmptyString_WithNullLockers()
         {
             var sb = new StringBuilder();
-            ProcessInfo.Format(sb, null, []);
+            ProcessInfo.Format(sb, null!, []);
             Assert.AreEqual(0, sb.Length);
         }
 
@@ -86,7 +86,7 @@ namespace LockCheck.Tests
         [TestMethod]
         public void Format_ShouldThrowArgumentNullException_WithNullFileNames()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => ProcessInfo.Format(new(), [], null));
+            Assert.ThrowsException<ArgumentNullException>(() => ProcessInfo.Format(new(), [], null!));
         }
 
         [TestMethod]

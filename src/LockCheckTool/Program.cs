@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
@@ -8,7 +8,7 @@ namespace LockCheck
 {
     internal class Program
     {
-        private static readonly string s_name = typeof(Program).Assembly.GetName().Name;
+        private static readonly string s_name = typeof(Program).Assembly.GetName().Name!;
 
         private static int Usage()
         {
