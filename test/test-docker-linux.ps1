@@ -1,7 +1,9 @@
 #    -e VSTEST_HOST_DEBUG=1 `
-docker run `
-    --rm --name LockCheck.Tests `
-    -v ${PWD}\..:/mnt/lc `
-    -w /mnt/lc `
-    mcr.microsoft.com/dotnet/sdk:8.0 `
-    bash -c '/usr/share/dotnet/dotnet test -c Release -f net8.0 test/LockCheck.Tests/LockCheck.Tests.csproj && /usr/share/dotnet/dotnet test -c Debug -f net8.0 test/LockCheck.Tests/LockCheck.Tests.csproj'
+$mydir = $PSScriptRoot
+$project = './test/LockCheck.Tests/LockCheck.Tests.csproj'
+$dotnet = '/usr/share/dotnet/dotnet'
+
+$script = "$dotnet test -c Release -f net8.0 && $dotnet test -c Debug -f net8.0"
+$script = $script.Replace("`r", "")
+
+docker run --rm --name LockCheck.Tests -v ${mydir}/..:/mnt/lc -w /mnt/lc mcr.microsoft.com/dotnet/sdk:8.0 bash -c $script
