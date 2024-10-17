@@ -34,7 +34,7 @@ namespace LockCheck
                 throw new ArgumentNullException(nameof(paths));
 
             HashSet<ProcessInfo> processInfos = [];
-            List<string> directories = (features & LockManagerFeatures.CheckDirectories) != 0 ? [] : null;
+            List<string>? directories = (features & LockManagerFeatures.CheckDirectories) != 0 ? [] : null;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {

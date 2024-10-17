@@ -9,22 +9,22 @@ namespace LockCheck.Linux
     {
 #if DEBUG
 #pragma warning disable IDE0052
-        private string _errorStack;
-        private Exception _errorCause;
+        private string? _errorStack;
+        private Exception? _errorCause;
         private int _errorCode;
 #pragma warning restore IDE0052
 #endif
 
         public int ProcessId { get; private set; }
         public int SessionId { get; private set; }
-        public string CommandLine { get; private set; }
-        public string CurrentDirectory { get; private set; }
-        public string ExecutableFullPath { get; private set; }
-        public string Owner { get; private set; }
+        public string? CommandLine { get; private set; }
+        public string? CurrentDirectory { get; private set; }
+        public string? ExecutableFullPath { get; private set; }
+        public string? Owner { get; private set; }
         public DateTime StartTime { get; private set; }
         public bool HasError { get; private set; }
 
-        public void SetError(Exception ex = null, int errorCode = 0)
+        public void SetError(Exception? ex = null, int errorCode = 0)
         {
             if (!HasError)
             {
@@ -69,7 +69,7 @@ namespace LockCheck.Linux
             }
         }
 
-        private static string GetProcessOwner(int pid)
+        private static string? GetProcessOwner(int pid)
         {
             try
             {
@@ -87,11 +87,11 @@ namespace LockCheck.Linux
             return null;
         }
 
-        private static string GetCommandLine(int pid, ProcInfo he)
+        private static string? GetCommandLine(int pid, ProcInfo he)
         {
             try
             {
-                string[] args = ProcFileSystem.GetProcessCommandLineArgs(pid);
+                string[]? args = ProcFileSystem.GetProcessCommandLineArgs(pid);
 
                 if (args == null)
                 {
@@ -113,16 +113,17 @@ namespace LockCheck.Linux
             }
         }
 
-        private static string GetCurrentDirectory(int pid, ProcInfo he)
+        private static string? GetCurrentDirectory(int pid, ProcInfo he)
         {
             try
             {
-                string cwd = ProcFileSystem.GetProcessCurrentDirectory(pid);
+                string? cwd = ProcFileSystem.GetProcessCurrentDirectory(pid);
 
                 if (cwd == null)
                 {
                     he.SetError();
                 }
+
                 return cwd;
             }
             catch (UnauthorizedAccessException ex)
@@ -137,11 +138,11 @@ namespace LockCheck.Linux
             }
         }
 
-        private static string GetExecutablePath(int pid, ProcInfo he)
+        private static string? GetExecutablePath(int pid, ProcInfo he)
         {
             try
             {
-                string name = ProcFileSystem.GetProcessExecutablePath(pid);
+                string? name = ProcFileSystem.GetProcessExecutablePath(pid);
 
                 if (name == null)
                 {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -12,7 +13,7 @@ namespace LockCheck.Windows
 {
     internal static class NtDll
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string> directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string>? directories)
         {
             if (paths == null)
             {
@@ -40,6 +41,11 @@ namespace LockCheck.Windows
             if (path == null)
             {
                 throw new ArgumentNullException(nameof(path));
+            }
+
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
             }
 
             IntPtr bufferPtr = IntPtr.Zero;
@@ -88,7 +94,11 @@ namespace LockCheck.Windows
                     for (int i = 0; i < numEntries; i++)
                     {
                         int processId = Marshal.ReadIntPtr(readBuffer).ToInt32(); // A single ProcessIdList[] element
-                        result.Add(ProcessInfoWindows.Create(processId));
+                        var entry = ProcessInfoWindows.Create(processId);
+                        if (entry != null)
+                        {
+                            result.Add(entry);
+                        }
                         readBuffer += IntPtr.Size;
                     }
                 }
@@ -110,6 +120,11 @@ namespace LockCheck.Windows
 
         internal static Dictionary<(int, DateTime), ProcessInfo> GetProcessesByWorkingDirectory(List<string> directories)
         {
+            if (directories == null)
+            {
+                throw new ArgumentNullException(nameof(directories));
+            }
+
             return EnumerateSystemProcesses(null, directories,
                 static (dirs, idx, pi) =>
                 {
@@ -121,7 +136,7 @@ namespace LockCheck.Windows
                         // we have to take it into account. This will also account for differences in the two when the
                         // search path does not end with a '\', but the PEB's current directory does (which is always the
                         // case).
-                        if (dirs.FindIndex(d => peb.CurrentDirectory.StartsWith(d, StringComparison.OrdinalIgnoreCase)) != -1)
+                        if (dirs!.FindIndex(d => peb.CurrentDirectory.StartsWith(d, StringComparison.OrdinalIgnoreCase)) != -1)
                         {
                             return (ProcessInfo)ProcessInfoWindows.Create(peb);
                         }
@@ -150,9 +165,9 @@ namespace LockCheck.Windows
         private static uint s_mostRecentSize = GetDefaultCachedBufferSize();
 
         internal static unsafe Dictionary<(int, DateTime), T> EnumerateSystemProcesses<T, TData>(
-            HashSet<int> processIds,
-            TData data,
-            Func<TData, int, SYSTEM_PROCESS_INFORMATION, T> newEntry)
+            HashSet<int>? processIds,
+            TData? data,
+            Func<TData?, int, SYSTEM_PROCESS_INFORMATION, T?> newEntry)
         {
             // Start with the default buffer size.
             uint bufferSize = s_mostRecentSize;
@@ -202,9 +217,9 @@ namespace LockCheck.Windows
 
         private static unsafe Dictionary<(int, DateTime), T> HandleProcesses<T, TData>(
             ReadOnlySpan<byte> current,
-            HashSet<int> processIds,
-            TData data,
-            Func<TData, int, SYSTEM_PROCESS_INFORMATION, T> newEntry)
+            HashSet<int>? processIds,
+            TData? data,
+            Func<TData?, int, SYSTEM_PROCESS_INFORMATION, T?> newEntry)
         {
             var processInfos = new Dictionary<(int, DateTime), T>();
             int processInformationOffset = 0;
@@ -240,12 +255,12 @@ namespace LockCheck.Windows
         // This implementation with based on .NET Frameworks Process class.
         //
 
-        private static long[] s_cachedBuffer;
+        private static long[]? s_cachedBuffer;
 
         internal static Dictionary<(int, DateTime), T> EnumerateSystemProcesses<T, TData>(
-            HashSet<int> processIds,
-            TData data,
-            Func<TData, int, SYSTEM_PROCESS_INFORMATION, T> newEntry)
+            HashSet<int>? processIds,
+            TData? data,
+            Func<TData?, int, SYSTEM_PROCESS_INFORMATION, T?> newEntry)
         {
             var processInfos = new Dictionary<(int, DateTime), T>();
             var bufferHandle = new GCHandle();
@@ -254,7 +269,7 @@ namespace LockCheck.Windows
             int bufferSize = (int)GetDefaultCachedBufferSize();
 
             // Get the cached buffer.
-            long[] buffer = Interlocked.Exchange(ref s_cachedBuffer, null);
+            long[]? buffer = Interlocked.Exchange(ref s_cachedBuffer, null);
 
             try
             {

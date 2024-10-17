@@ -131,9 +131,9 @@ namespace LockCheck.Windows
             uint nFiles,
             string[] rgsFilenames,
             uint nApplications,
-            [In] RM_UNIQUE_PROCESS[] rgApplications,
+            [In] RM_UNIQUE_PROCESS[]? rgApplications,
             uint nServices,
-            string[] rgsServiceNames);
+            string[]? rgsServiceNames);
 
         [DllImport(RestartManagerDll, CharSet = CharSet.Unicode)]
         internal static extern int RmStartSession(out uint pSessionHandle,
@@ -146,7 +146,7 @@ namespace LockCheck.Windows
         internal static extern int RmGetList(uint dwSessionHandle,
             out uint pnProcInfoNeeded,
             ref uint pnProcInfo,
-            [In, Out] RM_PROCESS_INFO[] rgAffectedApps,
+            [In, Out] RM_PROCESS_INFO[]? rgAffectedApps,
             ref uint lpdwRebootReasons);
 
         [StructLayout(LayoutKind.Sequential)]
@@ -274,7 +274,7 @@ namespace LockCheck.Windows
         private static extern bool QueryFullProcessImageName(SafeProcessHandle hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
 #endif
 
-        internal static unsafe string GetProcessImagePath(SafeProcessHandle hProcess, bool throwOnError = false)
+        internal static unsafe string? GetProcessImagePath(SafeProcessHandle hProcess, bool throwOnError = false)
         {
 #if NET
             const int stackSize = 260; // Actual Windows MAX_PATH value. But paths can get larger (up to 32k).
@@ -358,7 +358,7 @@ namespace LockCheck.Windows
             return -1;
         }
 
-        internal static string GetProcessOwner(SafeProcessHandle handle)
+        internal static string? GetProcessOwner(SafeProcessHandle handle)
         {
             try
             {
@@ -397,7 +397,7 @@ namespace LockCheck.Windows
                 var ret = GetTokenInformation(token, TOKEN_INFORMATION_CLASS.TokenUser, tu, cb, ref cb);
                 if (ret)
                 {
-                    var tokUser = (TOKEN_USER)Marshal.PtrToStructure(tu, typeof(TOKEN_USER));
+                    var tokUser = Marshal.PtrToStructure<TOKEN_USER>(tu);
                     sid = tokUser.User.Sid;
                 }
                 return ret;

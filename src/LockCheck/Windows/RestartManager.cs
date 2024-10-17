@@ -10,10 +10,10 @@ namespace LockCheck.Windows
 {
     internal static class RestartManager
     {
-        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string> directories)
+        public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, ref List<string>? directories)
         {
             if (paths == null)
-                throw new ArgumentNullException("paths");
+                throw new ArgumentNullException(nameof(paths));
 
             const int maxRetries = 6;
 
@@ -59,7 +59,7 @@ namespace LockCheck.Windows
                 //    call is not enough.
                 // 
                 uint pnProcInfo = 0;
-                NativeMethods.RM_PROCESS_INFO[] rgAffectedApps = null;
+                NativeMethods.RM_PROCESS_INFO[]? rgAffectedApps = null;
                 int retry = 0;
                 do
                 {
@@ -76,7 +76,11 @@ namespace LockCheck.Windows
                         var lockInfos = new HashSet<ProcessInfo>((int)pnProcInfo);
                         for (int i = 0; i < pnProcInfo; i++)
                         {
-                            lockInfos.Add(ProcessInfoWindows.Create(rgAffectedApps[i]));
+                            var info = ProcessInfoWindows.Create(rgAffectedApps![i]);
+                            if (info != null)
+                            {
+                                lockInfos.Add(info);
+                            }
                         }
                         return lockInfos;
                     }

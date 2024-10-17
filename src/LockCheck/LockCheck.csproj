@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net481</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Nullable Condition="'$(TargetFramework)' == 'net8.0'">enable</Nullable>
+    <Nullable Condition="'$(TargetFramework)' == 'net481'">annotations</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>
