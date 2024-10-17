@@ -11,6 +11,7 @@ namespace LockCheck.Linux
 #pragma warning disable IDE0052
         private string _errorStack;
         private Exception _errorCause;
+        private int _errorCode;
 #pragma warning restore IDE0052
 #endif
 
@@ -23,7 +24,7 @@ namespace LockCheck.Linux
         public DateTime StartTime { get; private set; }
         public bool HasError { get; private set; }
 
-        public void SetError(Exception ex = null)
+        public void SetError(Exception ex = null, int errorCode = 0)
         {
             if (!HasError)
             {
@@ -34,6 +35,7 @@ namespace LockCheck.Linux
                     // Support manual inspection at a later point
                     _errorStack = Environment.StackTrace;
                     _errorCause = ex;
+                    _errorCode = errorCode;
                 }
 #endif
             }
@@ -85,7 +87,7 @@ namespace LockCheck.Linux
             return null;
         }
 
-        private static string GetCommandLine(int pid, IHasErrorState he)
+        private static string GetCommandLine(int pid, ProcInfo he)
         {
             try
             {
@@ -111,7 +113,7 @@ namespace LockCheck.Linux
             }
         }
 
-        private static string GetCurrentDirectory(int pid, IHasErrorState he)
+        private static string GetCurrentDirectory(int pid, ProcInfo he)
         {
             try
             {
@@ -135,7 +137,7 @@ namespace LockCheck.Linux
             }
         }
 
-        private static string GetExecutablePath(int pid, IHasErrorState he)
+        private static string GetExecutablePath(int pid, ProcInfo he)
         {
             try
             {
@@ -165,7 +167,7 @@ namespace LockCheck.Linux
             }
         }
 
-        private static int GetSessionId(int pid, IHasErrorState he)
+        private static int GetSessionId(int pid, ProcInfo he)
         {
             try
             {
@@ -190,7 +192,7 @@ namespace LockCheck.Linux
             }
         }
 
-        private static unsafe DateTime GetStartTime(int pid, IHasErrorState he)
+        private static unsafe DateTime GetStartTime(int pid, ProcInfo he)
         {
             try
             {

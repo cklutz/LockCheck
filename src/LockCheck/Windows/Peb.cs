@@ -15,6 +15,7 @@ namespace LockCheck.Windows
 #pragma warning disable IDE0052
         private string _errorStack;
         private Exception _errorCause;
+        private int _errorCode;
 #pragma warning restore IDE0052
 #endif
 
@@ -29,7 +30,7 @@ namespace LockCheck.Windows
         public DateTime StartTime { get; private set; }
         public bool HasError { get; private set; }
 
-        public void SetError(Exception ex = null)
+        public void SetError(Exception ex = null, int errorCode = 0)
         {
             if (!HasError)
             {
@@ -40,6 +41,7 @@ namespace LockCheck.Windows
                     // Support manual inspection at a later point
                     _errorStack = Environment.StackTrace;
                     _errorCause = ex;
+                    _errorCode = errorCode;
                 }
 #endif
             }
@@ -47,13 +49,15 @@ namespace LockCheck.Windows
 
         internal Peb(SYSTEM_PROCESS_INFORMATION pi)
         {
-            ProcessId = (int)pi.UniqueProcessId;
+            // Convert as many members as possible, without actually needing to open the process handle.
+            // Also, ProcessId/StartTime serve as identity. So it is "useful" to have them.
+            ProcessId = pi.UniqueProcessId.ToInt32();
+            StartTime = DateTime.FromFileTime(pi.CreateTime);
 
             using var process = OpenProcessRead(ProcessId);
 
-            if (process.IsInvalid)
+            if (!SUCCEEDED(!process.IsInvalid, this))
             {
-                SetError();
                 return;
             }
 
@@ -66,9 +70,8 @@ namespace LockCheck.Windows
 
             if (os64)
             {
-                if (!IsWow64Process(process, out bool isWow64Target))
+                if (!SUCCEEDED(IsWow64Process(process, out bool isWow64Target), this))
                 {
-                    SetError();
                     return;
                 }
 
@@ -111,9 +114,6 @@ namespace LockCheck.Windows
             // Owner is not really part of the native PEB, but since we have the process handle
             // here anyway, and going to need this value later on, we get it here as well.
             Owner = GetProcessOwner(process);
-
-            // Also not part of native PEB, but easy to get here and needed later on.
-            StartTime = DateTime.FromFileTime(pi.CreateTime);
         }
 
         private static void InitTargetAnySelfAny(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
@@ -179,7 +179,7 @@ namespace LockCheck.Windows
             }
         }
 
-        private static int GetInt32Target32(SafeProcessHandle handle, IntPtr pp, int offset, IHasErrorState he)
+        private static int GetInt32Target32(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
         {
             var ptr = IntPtr.Zero;
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(sizeof(int)), IntPtr.Zero), he))
@@ -187,11 +187,10 @@ namespace LockCheck.Windows
                 return ptr.ToInt32();
             }
 
-            he.SetError();
             return default;
         }
 
-        private static string GetStringTarget32(SafeProcessHandle handle, IntPtr pp, int offset, IHasErrorState he)
+        private static string GetStringTarget32(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
         {
             var us = new UNICODE_STRING_32();
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
@@ -211,11 +210,10 @@ namespace LockCheck.Windows
                 }
             }
 
-            he.SetError();
             return null;
         }
 
-        private static int GetInt32Target64(SafeProcessHandle handle, long pp, int offset, IHasErrorState he)
+        private static int GetInt32Target64(SafeProcessHandle handle, long pp, int offset, Peb he)
         {
             var ptr = IntPtr.Zero;
             uint buf = 0;
@@ -225,11 +223,10 @@ namespace LockCheck.Windows
                 return ptr.ToInt32();
             }
 
-            he.SetError();
             return default;
         }
 
-        private static string GetStringTarget64(SafeProcessHandle handle, long pp, int offset, IHasErrorState he)
+        private static string GetStringTarget64(SafeProcessHandle handle, long pp, int offset, Peb he)
         {
             var us = new UNICODE_STRING_WOW64();
             if (SUCCEEDED(NtWow64ReadVirtualMemory64(handle, pp + offset, ref us, Marshal.SizeOf(us), IntPtr.Zero), he))
@@ -249,11 +246,10 @@ namespace LockCheck.Windows
                 }
             }
 
-            he.SetError();
             return null;
         }
 
-        private static int GetInt32(SafeProcessHandle handle, IntPtr pp, int offset, IHasErrorState he)
+        private static int GetInt32(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
         {
             var ptr = IntPtr.Zero;
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref ptr, new IntPtr(IntPtr.Size), IntPtr.Zero), he))
@@ -261,11 +257,10 @@ namespace LockCheck.Windows
                 return ptr.ToInt32();
             }
 
-            he.SetError();
             return 0;
         }
 
-        private static string GetString(SafeProcessHandle handle, IntPtr pp, int offset, IHasErrorState he)
+        private static string GetString(SafeProcessHandle handle, IntPtr pp, int offset, Peb he)
         {
             var us = new UNICODE_STRING();
             if (SUCCEEDED(ReadProcessMemory(handle, pp + offset, ref us, new IntPtr(Marshal.SizeOf(us)), IntPtr.Zero), he))
@@ -285,37 +280,45 @@ namespace LockCheck.Windows
                 }
             }
 
-            he.SetError();
             return null;
         }
 
-        private static bool SUCCEEDED(uint status, IHasErrorState he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        /// <summary>
+        /// Checks if <paramref name="status"/> is success, otherwise sets <c><paramref name="he"/>.SetError(errorCode: <paramref name="status"/>)</c>.
+        /// </summary>
+        private static bool SUCCEEDED(uint status, Peb he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (status != STATUS_SUCCESS)
             {
-                he.SetError();
+                he.SetError(errorCode: (int)status);
                 return false;
             }
 
             return true;
         }
 
-        private static bool SUCCEEDED(int status, IHasErrorState he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        /// <summary>
+        /// Checks if <paramref name="status"/> is success, otherwise sets <c><paramref name="he"/>.SetError(errorCode: <paramref name="status"/>)</c>.
+        /// </summary>
+        private static bool SUCCEEDED(int status, Peb he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (status != STATUS_SUCCESS)
             {
-                he.SetError();
+                he.SetError(errorCode: status);
                 return false;
             }
 
             return true;
         }
 
-        private static bool SUCCEEDED(bool result, IHasErrorState he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
+        /// <summary>
+        /// Checks if <paramref name="status"/> is success, otherwise sets <c><paramref name="he"/>.SetError(errorCode: <see cref="Marshal.GetLastWin32Error()"/>)</c>.
+        /// </summary>
+        private static bool SUCCEEDED(bool result, Peb he, [CallerMemberName] string callerName = null, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = 0)
         {
             if (!result)
             {
-                he.SetError();
+                he.SetError(errorCode: Marshal.GetLastWin32Error());
                 return false;
             }
 

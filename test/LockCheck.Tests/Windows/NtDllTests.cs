@@ -79,7 +79,7 @@ namespace LockCheck.Tests.Windows
             using var self = Process.GetCurrentProcess();
             bool found = false;
             int count = 0;
-            var result = NtDll.EnumerateSystemProcesses([self.Id], self.Id, (mp, currentPtr, idx, pi) =>
+            var result = NtDll.EnumerateSystemProcesses([self.Id], self.Id, (mp, idx, pi) =>
             {
                 if ((int)pi.UniqueProcessId == mp)
                 {
@@ -100,7 +100,7 @@ namespace LockCheck.Tests.Windows
             using var self = Process.GetCurrentProcess();
             bool found = false;
             int count = 0;
-            var result = NtDll.EnumerateSystemProcesses(null, self.Id, (mp, currentPtr, idx, pi) =>
+            var result = NtDll.EnumerateSystemProcesses(null, self.Id, (mp, idx, pi) =>
             {
                 if ((int)pi.UniqueProcessId == mp)
                 {

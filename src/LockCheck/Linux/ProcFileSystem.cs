@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.IO.Pipes;
+using System.Linq;
 using System.Text;
 
 namespace LockCheck.Linux
@@ -133,7 +133,7 @@ namespace LockCheck.Linux
         {
             get
             {
-                // _procMatchesPidNamespace is set to:
+                // s_procMatchesPidNamespace is set to:
                 // - 0: when uninitialized,
                 // - 1: '/proc' and the process pid namespace match,
                 // - 2: when they don't match.
@@ -143,8 +143,9 @@ namespace LockCheck.Linux
                     // We compare it with the pid of the current process to see if the '/proc' and pid namespace match up.
 
                     int? procSelfPid = null;
-                    if (NativeMethods.ReadLink("/proc/self") is string target &&
-                        int.TryParse(target, out int pid))
+
+                    if (Directory.ResolveLinkTarget("/proc/self", false)?.FullName is string target &&
+                        int.TryParse(Path.GetFileName(target), out int pid))
                     {
                         procSelfPid = pid;
                     }
@@ -185,11 +186,11 @@ namespace LockCheck.Linux
             return false;
         }
 
-        private static string GetProcCmdline(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/cmdline" : string.Create(null, stackalloc char[256], $"/proc/{(int)procPid}/cmdline");
-        private static string GetProcExe(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/exe" : string.Create(null, stackalloc char[256], $"/proc/{(int)procPid}/exe");
-        private static string GetProcCwd(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/cwd" : string.Create(null, stackalloc char[256], $"/proc/{(int)procPid}/cwd");
-        private static string GetProcStat(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/stat" : string.Create(null, stackalloc char[256], $"/proc/{(int)procPid}/stat");
-        private static string GetProcDir(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self" : string.Create(null, stackalloc char[256], $"/proc/{(int)procPid}");
+        private static string GetProcCmdline(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/cmdline" : string.Create(null, stackalloc char[128], $"/proc/{(int)procPid}/cmdline");
+        private static string GetProcExe(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/exe" : string.Create(null, stackalloc char[128], $"/proc/{(int)procPid}/exe");
+        private static string GetProcCwd(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/cwd" : string.Create(null, stackalloc char[128], $"/proc/{(int)procPid}/cwd");
+        private static string GetProcStat(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self/stat" : string.Create(null, stackalloc char[128], $"/proc/{(int)procPid}/stat");
+        private static string GetProcDir(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self" : string.Create(null, stackalloc char[128], $"/proc/{(int)procPid}");
 
         internal static bool Exists(int processId) => TryGetProcPid(processId, out var procPid) && Directory.Exists(GetProcDir(procPid));
 
@@ -213,17 +214,21 @@ namespace LockCheck.Linux
 
         internal static DateTime GetProcessStartTime(int processId)
         {
-            if (TryGetProcPid(processId, out _))
+            if (TryGetProcPid(processId, out ProcPid procPid))
             {
-                // Apparently it is impossible to fully recreate the time that Process.StartTime calculates in 
-                // the background. It uses clock_gettime(CLOCK_BOOTTIME) (see https://github.com/dotnet/runtime/pull/83966)
-                // internally and calculates the start time relative to that using /proc/<pid>/stat.
-                // However we shave the yack, we get a different time than what Process.StartTime would return.
-                // Debugging has it, that this is due to the fact that we get a different "boot time" (later time).
-                // I'm not sure if that is a bug in the CLR or just a fact of life on Linux.
-                // In any case, we need to get the exact same Timestamp for our hash keys to work properly.
-                using var process = Process.GetProcessById(processId);
-                return process.StartTime;
+                // Apparently it is currently impossible to fully recreate the time that Process.StartTime is.
+                // Also see https://github.com/dotnet/runtime/issues/108959.
+
+                if (procPid == ProcPid.Self)
+                {
+                    using var process = Process.GetCurrentProcess();
+                    return process.StartTime;
+                }
+                else
+                {
+                    using var process = Process.GetProcessById(processId);
+                    return process.StartTime;
+                }
             }
 
             return default;
@@ -254,7 +259,7 @@ namespace LockCheck.Linux
             return null;
         }
 
-        internal static string[] GetProcessCommandLineArgs(int processId)
+        internal static string[] GetProcessCommandLineArgs(int processId, int maxArgs = -1)
         {
             if (TryGetProcPid(processId, out ProcPid procPid))
             {
@@ -295,7 +300,7 @@ namespace LockCheck.Linux
                             }
                         }
 
-                        return ConvertToArgs(ref buffer);
+                        return ConvertToArgs(ref buffer, maxArgs);
                     }
                 }
                 catch (IOException)
@@ -313,9 +318,9 @@ namespace LockCheck.Linux
             return null;
         }
 
-        internal static string[] ConvertToArgs(ref Span<byte> buffer)
+        internal static string[] ConvertToArgs(ref Span<byte> buffer, int maxArgs = -1)
         {
-            if (buffer.IsEmpty)
+            if (buffer.IsEmpty || maxArgs == 0)
             {
                 return [];
             }
@@ -333,7 +338,8 @@ namespace LockCheck.Linux
             }
 
             // Individual argv elements in the buffer are separated by a null byte.
-            int count = buffer.Count((byte)'\0') + 1;
+            int actual = buffer.Count((byte)'\0') + 1;
+            int count = maxArgs > 0 ? Math.Min(maxArgs, actual) : actual;
             string[] args = new string[count];
             int start = 0;
             int p = 0;
@@ -343,6 +349,11 @@ namespace LockCheck.Linux
                 {
                     args[p++] = Encoding.UTF8.GetString(buffer.Slice(start, i - start));
                     start = i + 1;
+
+                    if (maxArgs > 0 && maxArgs == p)
+                    {
+                        return args;
+                    }
                 }
             }
 
@@ -366,64 +377,11 @@ namespace LockCheck.Linux
 
         internal static string GetProcessExecutablePathFromCmdLine(int processId)
         {
-            if (TryGetProcPid(processId, out ProcPid procPid))
-            {
-                byte[] rentedBuffer = null;
-                try
-                {
-                    using (var file = new FileStream(GetProcCmdline(procPid), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1, useAsync: false))
-                    {
-                        Span<byte> buffer = stackalloc byte[256];
-                        int bytesRead = 0;
-                        while (true)
-                        {
-                            if (bytesRead == buffer.Length)
-                            {
-                                // Resize buffer
-                                uint newLength = (uint)buffer.Length * 2;
-                                // Store what was read into new buffer
-                                byte[] tmp = ArrayPool<byte>.Shared.Rent((int)newLength);
-                                buffer.CopyTo(tmp);
-                                // Remember current "rented" buffer (might be null)
-                                byte[] lastRentedBuffer = rentedBuffer;
-                                // From now on, we did rent a buffer. And it will be used for further reads.
-                                buffer = tmp;
-                                rentedBuffer = tmp;
-                                // Return previously rented buffer, if any.
-                                if (lastRentedBuffer != null)
-                                {
-                                    ArrayPool<byte>.Shared.Return(lastRentedBuffer);
-                                }
-                            }
-
-                            Debug.Assert(bytesRead < buffer.Length);
-                            int n = file.Read(buffer.Slice(bytesRead));
-                            bytesRead += n;
-
-                            // "/proc/<pid>/cmdline" contains the original argument vector (argv), where each part is separated by a null byte.
-                            // See if we have read enough for argv[0], which contains the process name.
-                            ReadOnlySpan<byte> argRemainder = buffer.Slice(0, bytesRead);
-                            int argEnd = argRemainder.IndexOf((byte)'\0');
-                            if (argEnd != -1)
-                            {
-                                return Encoding.UTF8.GetString(argRemainder.Slice(0, argEnd));
-                            }
-                        }
-                    }
-                }
-                catch (IOException)
-                {
-                }
-                finally
-                {
-                    if (rentedBuffer != null)
-                    {
-                        ArrayPool<byte>.Shared.Return(rentedBuffer);
-                    }
-                }
-            }
-
-            return null;
+            // This is a little more expensive than a specific function only reading up to argv[0] from /proc/<pid>/cmdline
+            // would be - GetProcessCommandLineArgs() reads all arguments, but then only converts "maxArgs" of them to an
+            // actual System.String. On the other hand it saves quite some code duplication.
+            string[] args = GetProcessCommandLineArgs(processId, maxArgs: 1);
+            return args?.Length > 0 ? args[0] : null;
         }
 
         private static ReadOnlySpan<char> GetField(ReadOnlySpan<char> content, char delimiter, int index)
