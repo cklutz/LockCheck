@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
@@ -110,7 +111,7 @@ namespace LockCheck.Windows
 
 #if NET
         [LibraryImport(NtDll)]
-        internal static partial int NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS systemInformationClass, IntPtr dataPtr, int size, out int returnedSize);
+        internal static unsafe partial uint NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS systemInformationClass, void* dataPtr, uint size, uint* returnedSize);
 #else
         [DllImport(NtDll)]
         internal static extern int NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS systemInformationClass, IntPtr dataPtr, int size, out int returnedSize);
@@ -506,7 +507,7 @@ namespace LockCheck.Windows
 
         // native struct defined in ntexapi.h
         [StructLayout(LayoutKind.Sequential)]
-        internal class SYSTEM_PROCESS_INFORMATION
+        internal struct SYSTEM_PROCESS_INFORMATION
         {
             internal uint NextEntryOffset;
             internal uint NumberOfThreads;

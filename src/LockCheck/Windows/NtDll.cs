@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -110,7 +111,7 @@ namespace LockCheck.Windows
         internal static Dictionary<(int, DateTime), ProcessInfo> GetProcessesByWorkingDirectory(List<string> directories)
         {
             return EnumerateSystemProcesses(null, directories,
-                static (dirs, currentPtr, idx, pi) =>
+                static (dirs, idx, pi) =>
                 {
                     var peb = new Peb(pi);
 
@@ -130,18 +131,127 @@ namespace LockCheck.Windows
                 });
         }
 
+        // Use a smaller buffer size on debug to ensure we hit the retry path.
+        private static uint GetDefaultCachedBufferSize() => 1024 *
+#if DEBUG
+            8;
+#else
+            1024;
+#endif
+
+#if NET
+        //
+        // This implementation with based on dotnet/runtime ProcessManager.Win32.cs does.
+        // Basically, it doesn't hold on to a "cached buffer" and uses more modern constructs
+        // which results in "simpler" code. Especially, it does not use GCHandle and also
+        // doesn't have workarounds for "older" versions of Windows anymore.
+        //
+
+        private static uint s_mostRecentSize = GetDefaultCachedBufferSize();
+
+        internal static unsafe Dictionary<(int, DateTime), T> EnumerateSystemProcesses<T, TData>(
+            HashSet<int> processIds,
+            TData data,
+            Func<TData, int, SYSTEM_PROCESS_INFORMATION, T> newEntry)
+        {
+            // Start with the default buffer size.
+            uint bufferSize = s_mostRecentSize;
+
+            while (true)
+            {
+                // some platforms require the buffer to be 64-bit aligned and NativeLibrary.Alloc guarantees sufficient alignment.
+                void* bufferPtr = NativeMemory.Alloc(bufferSize);
+
+                try
+                {
+                    uint actualSize = 0;
+                    uint status = NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation, bufferPtr, bufferSize, &actualSize);
+
+                    if (status != STATUS_INFO_LENGTH_MISMATCH)
+                    {
+                        // see definition of NT_SUCCESS(Status) in SDK
+                        if ((int)status < 0)
+                        {
+                            throw GetException(status);
+                        }
+
+                        // Remember last buffer size for next attempt. Note that this may also result in smaller
+                        // buffer sizes for further attempts, as the live processes can also decrease in comparison
+                        // to a previous call.
+                        Debug.Assert(actualSize > 0 && actualSize <= bufferSize, $"actualSize={actualSize} bufferSize={bufferSize} (0x{status:x8}).");
+                        s_mostRecentSize = GetEstimatedBufferSize(actualSize);
+
+                        return HandleProcesses(new ReadOnlySpan<byte>(bufferPtr, (int)actualSize), processIds, data, newEntry);
+                    }
+                    else
+                    {
+                        // Buffer was too small; retry with a larger buffer.
+                        Debug.Assert(actualSize > bufferSize, $"actualSize={actualSize} bufferSize={bufferSize} (0x{status:x8}).");
+                        bufferSize = GetEstimatedBufferSize(actualSize);
+                    }
+                }
+                finally
+                {
+                    NativeMemory.Free(bufferPtr);
+                }
+            }
+
+            // allocating a few more kilo bytes just in case there are some new processes since the last call
+            static uint GetEstimatedBufferSize(uint actualSize) => actualSize + 1024 * 10;
+        }
+
+        private static unsafe Dictionary<(int, DateTime), T> HandleProcesses<T, TData>(
+            ReadOnlySpan<byte> current,
+            HashSet<int> processIds,
+            TData data,
+            Func<TData, int, SYSTEM_PROCESS_INFORMATION, T> newEntry)
+        {
+            var processInfos = new Dictionary<(int, DateTime), T>();
+            int processInformationOffset = 0;
+            int count = 0;
+
+            while (true)
+            {
+                ref readonly var pi = ref MemoryMarshal.AsRef<SYSTEM_PROCESS_INFORMATION>(current.Slice(processInformationOffset));
+
+                int pid = pi.UniqueProcessId.ToInt32();
+                if (processIds == null || processIds.Contains(pid))
+                {
+                    var entry = newEntry(data, count, pi);
+                    if (entry != null)
+                    {
+                        processInfos.Add((pid, DateTime.FromFileTime(pi.CreateTime)), entry);
+                    }
+                }
+
+                if (pi.NextEntryOffset == 0)
+                {
+                    break;
+                }
+                processInformationOffset += (int)pi.NextEntryOffset;
+                count++;
+            }
+
+            return processInfos;
+        }
+
+#else
+        //
+        // This implementation with based on .NET Frameworks Process class.
+        //
+
         private static long[] s_cachedBuffer;
 
         internal static Dictionary<(int, DateTime), T> EnumerateSystemProcesses<T, TData>(
             HashSet<int> processIds,
             TData data,
-            Func<TData, IntPtr, int, SYSTEM_PROCESS_INFORMATION, T> newEntry)
+            Func<TData, int, SYSTEM_PROCESS_INFORMATION, T> newEntry)
         {
             var processInfos = new Dictionary<(int, DateTime), T>();
             var bufferHandle = new GCHandle();
 
-            // Start with the default buffer size.
-            int bufferSize = 4096 * 128;
+            // Start with the default buffer size (smaller in DEBUG to make sure retry path is hit)
+            int bufferSize = (int)GetDefaultCachedBufferSize();
 
             // Get the cached buffer.
             long[] buffer = Interlocked.Exchange(ref s_cachedBuffer, null);
@@ -196,15 +306,13 @@ namespace LockCheck.Windows
                 while (true)
                 {
                     nint currentPtr = checked((IntPtr)(dataPtr.ToInt64() + totalOffset));
-                    var pi = new SYSTEM_PROCESS_INFORMATION();
-
-                    Marshal.PtrToStructure(currentPtr, pi);
+                    var pi = Marshal.PtrToStructure<SYSTEM_PROCESS_INFORMATION>(currentPtr);
 
                     int pid = pi.UniqueProcessId.ToInt32();
                     if (processIds == null || processIds.Contains(pid))
                     {
                         var startTime = DateTime.FromFileTime(pi.CreateTime);
-                        var entry = newEntry(data, currentPtr, count, pi);
+                        var entry = newEntry(data, count, pi);
                         if (entry != null)
                         {
                             processInfos.Add((pid, startTime), entry);
@@ -260,5 +368,6 @@ namespace LockCheck.Windows
                 }
             }
         }
+#endif
     }
 }

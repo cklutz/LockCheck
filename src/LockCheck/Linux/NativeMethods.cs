@@ -1,9 +1,6 @@
 using System;
-using System.Buffers;
 using System.IO;
-using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
-using System.Text;
 
 #pragma warning disable IDE1006 // Naming Styles - off here, because we want to use native names
 
@@ -91,9 +88,6 @@ namespace LockCheck.Linux
             throw new IOException($"Couldn't get user name for '{uid}' (errno = {error})");
         }
 
-        // Copied (and modified) from github.com/dotnet/runtime, MIT licensed.
-        // ---BEGIN---------------------------------------------------------------------------------
-
         private const string SystemNative = "System.Native";
 
         [StructLayout(LayoutKind.Sequential)]
@@ -136,63 +130,5 @@ namespace LockCheck.Linux
 
         [LibraryImport(SystemNative, EntryPoint = "SystemNative_GetPwUidR", SetLastError = false)]
         internal static unsafe partial int GetPwUidR(uint uid, out Passwd pwd, byte* buf, int bufLen);
-
-        [LibraryImport(SystemNative, EntryPoint = "SystemNative_ReadLink", SetLastError = true)]
-        private static partial int ReadLink(ref byte path, ref byte buffer, int bufferSize);
-
-        internal static string ReadLink(ReadOnlySpan<char> path)
-        {
-            const int StackBufferSize = 256;
-
-            Span<byte> spanBuffer = stackalloc byte[StackBufferSize];
-            byte[] arrayBuffer = null;
-
-            // Convert path to UTF-8 bytes, zero terminated - CLR code used internal ValueUtf8Converter for this.
-            int maxSize = checked(Encoding.UTF8.GetMaxByteCount(path.Length) + 1);
-            Span<byte> pathBytes = maxSize <= StackBufferSize ? stackalloc byte[maxSize] : new byte[maxSize];
-            int pathBytesCount = Encoding.UTF8.GetBytes(path, pathBytes);
-            pathBytes[pathBytesCount] = 0;
-            pathBytes = pathBytes.Slice(0, pathBytesCount + 1);
-            ref byte pathReference = ref MemoryMarshal.GetReference(pathBytes);
-
-            while (true)
-            {
-                int error = 0;
-                try
-                {
-                    int resultLength = ReadLink(ref pathReference, ref MemoryMarshal.GetReference(spanBuffer), spanBuffer.Length);
-
-                    if (resultLength < 0)
-                    {
-                        // error
-                        error = Marshal.GetLastPInvokeError();
-                        return null;
-                    }
-                    else if (resultLength < spanBuffer.Length)
-                    {
-                        // success
-                        return Encoding.UTF8.GetString(spanBuffer.Slice(0, resultLength));
-                    }
-                }
-                finally
-                {
-                    if (arrayBuffer != null)
-                    {
-                        ArrayPool<byte>.Shared.Return(arrayBuffer);
-                    }
-
-                    if (error > 0)
-                    {
-                        Marshal.SetLastPInvokeError(error);
-                    }
-                }
-
-                // Output buffer was too small, loop around again and try with a larger buffer.
-                arrayBuffer = ArrayPool<byte>.Shared.Rent(spanBuffer.Length * 2);
-                spanBuffer = arrayBuffer;
-            }
-        }
-
-        // ---END-----------------------------------------------------------------------------------
     }
 }
