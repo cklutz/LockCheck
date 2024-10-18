@@ -1,11 +1,13 @@
 using System;
 using System.Diagnostics;
+using LockCheck.Tests.Tooling;
 using LockCheck.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LockCheck.Tests.Windows
 {
     [SupportedTestClassPlatform("windows")]
+    [TestCategory("windows")]
     public class ProcessInfoWindowsTests
     {
         [TestMethod]

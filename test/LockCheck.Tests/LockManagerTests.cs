@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using LockCheck.Tests.Tooling;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LockCheck.Tests

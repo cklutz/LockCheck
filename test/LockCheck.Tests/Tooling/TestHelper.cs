@@ -1,6 +1,6 @@
 using System;
 using System.Diagnostics;
-using System.Globalization;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
@@ -8,30 +8,26 @@ using System.Threading;
 using LockCheck.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LockCheck.Tests
+namespace LockCheck.Tests.Tooling
 {
     internal static class TestHelper
     {
-        public static void RunWithInvariantCulture(Action action)
-            => RunWithCulture(CultureInfo.InvariantCulture, action);
-
-        public static void RunWithCulture(CultureInfo cultureInfo, Action action)
+        public static void TryDelete(this FileSystemInfo fi)
         {
-            var oldUi = CultureInfo.CurrentUICulture;
-            var old = CultureInfo.CurrentCulture;
             try
             {
-                CultureInfo.CurrentUICulture = cultureInfo;
-                CultureInfo.CurrentCulture = cultureInfo;
-
-                action();
+                fi?.Delete();
             }
-            finally
+            catch (Exception ex)
             {
-                CultureInfo.CurrentUICulture = oldUi;
-                CultureInfo.CurrentCulture = old;
+                // This can be a test (logic) error. Or temporary lock situation was not
+                // properly resolved before attempting to delete the file/directory.
+                // In either case we do not throw this onward because it could hide
+                // an actual Assert-failure.
+                Console.WriteLine($"WARNING: Could not delete '{fi.FullName}': {ex}");
             }
         }
+
 
         public static NativeMethods.FILETIME ToNativeFileTime(this DateTime dateTime)
         {
@@ -67,12 +63,13 @@ namespace LockCheck.Tests
             }
             finally
             {
-                if (File.Exists(tempFile))
-                {
-                    File.Delete(tempFile);
-                }
+                new FileInfo(tempFile).TryDelete();
             }
         }
+
+        // Assign all child processes we launch to this job object. This ensures that they
+        // will get terminated at the very least, when the test (testhost.exe) itself exits.
+        private static readonly Lazy<IJobObject> s_selfJob = new(() => JobObject.Create(), LazyThreadSafetyMode.ExecutionAndPublication);
 
         public static void CreateProcessWithCurrentDirectory(
             bool target64Bit,
@@ -133,6 +130,8 @@ namespace LockCheck.Tests
                     throw new InvalidOperationException($"Failed to start test target: {si.FileName} {si.Arguments}");
                 }
 
+                s_selfJob.Value.AttachProcess(process);
+
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
@@ -173,24 +172,24 @@ namespace LockCheck.Tests
                     process?.Dispose();
                 }
 
-                tempDir.Delete();
+                tempDir.TryDelete();
             }
         }
 
         private static string GetClientFullPath(bool target64Bit, out string? hostExecutable)
         {
-            string runtimeIdentifier;
+            string targetRid;
             string extension;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                runtimeIdentifier = target64Bit ? "win-x64" : "win-x86";
+                targetRid = target64Bit ? "win-x64" : "win-x86";
                 extension = ".exe";
                 hostExecutable = null;
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                runtimeIdentifier = "linux-x64";
+                targetRid = "linux-x64";
                 extension = ".dll";
                 hostExecutable = "/usr/share/dotnet/dotnet";
             }
@@ -199,35 +198,67 @@ namespace LockCheck.Tests
                 throw new PlatformNotSupportedException();
             }
 
-            // Assume the following directory structure:
+            // Attempt to locate the LCTestTarget binary for the given TargetRID.
             //
-            //    test\LockCheck.Tests\bin\<Configuration>\<TargetFramework>
-            //    test\LCTestTarget.<RID>\bin\<Configuration>\<TargetFramework>\<RID>\LCTestTarget<EXTENSION>
+            // Assume that LockCheck.Tests (this assembly) is located as follows:
             //
-            // Obviously, this would have to change if your directory layout changes (e.g. using ArtifactPath in MSBUILD).
-            // But that would cause pretty obvious test failures and diagnosing them, will end looking here anyway.
+            //       C:\...\test\LockCheck.Tests\bin\<Configuration>\<TargetFramework>[\<RID>]   (=> AppContext.BaseDirectory)
+            //
+            // Note that sometimes this path ends with the RID, sometimes it doesn't. That depends
+            // on how the build/tests are invoked. So we have to cater for both possibilities.
+            //
+            // Assume further, that LCTestTarget projects are located as follows:
+            //
+            //       C:\...\test\LCTestTarget.<TargetRID>\bin\<Configuration>\<TargetFramework>\<TargetRid>\LCTestTarget<Extension>
+            //
+            // So, we want to run LCTestTarget from the same <TargetFramework> and <Configuration> as this assembly,
+            // but obviously using the <TargetRid> requested.
 
-            var myDir = AppContext.BaseDirectory.AsSpan().TrimEnd('\\').TrimEnd('/');
-            int pos = myDir.LastIndexOfAny(['/', '\\']);
+            ReadOnlySpan<char> separators = ['/', '\\'];
+
+            // Assume that the project (directory name) matches the assembly name.
+            string projectName = typeof(TestHelper).Assembly.GetName().Name!;
+
+            // Get the part of the path before the project directory (e.g. "C:\...\test")
+            if (!TryGetPathBeforeLastSegment(AppContext.BaseDirectory, projectName, out var baseDir))
+            {
+                throw new InvalidOperationException($"Failed to get project base directory from '{AppContext.BaseDirectory}' and '{projectName}'.");
+            }
+
+            // Get the part of the path after the project directory (e.g. "\bin\<Configuration>\<TargetFramework>[\<RID>]")
+            if (!TryGetPathAfterLastSegment(AppContext.BaseDirectory, projectName, out var outputDirString))
+            {
+                throw new InvalidOperationException($"Failed to get output directory from '{AppContext.BaseDirectory}' and '{projectName}'.");
+            }
+
+            // See if the path after the project directory ends with the RID (of this assembly)..
+            var outputDir = outputDirString.AsSpan().Trim(separators);
+            var currentRid = GetCurrentRuntimeIdentifier().AsSpan();
+            if (outputDir.ToString().EndsWith(currentRid.ToString()))
+            {
+                // Remove the RID from the path, so that next we can always assume the same segment
+                // position for <Configuration> and <TargetFramework>.
+                outputDir = outputDir.Slice(0, outputDir.Length - currentRid.Length).Trim(separators);
+            }
+
+            // Now, outputDir should look like this bin\<Configuration>\<TargetFramework>
+            int pos = outputDir.LastIndexOfAny(separators);
             Debug.Assert(pos != -1);
-            var targetFramework = myDir.Slice(pos + 1);
-            myDir = myDir.Slice(0, pos);
-            pos = myDir.LastIndexOfAny(['/', '\\']);
-            var configuration = myDir.Slice(pos + 1);
+            var targetFramework = outputDir.Slice(pos + 1);
+            outputDir = outputDir.Slice(0, pos).Trim(separators);
+            pos = outputDir.LastIndexOfAny(separators);
+            var configuration = outputDir.Slice(pos + 1);
 
-            string clientFullPath = Path.GetFullPath(
-                Path.Combine(
-                    AppContext.BaseDirectory, // in TargetFramework
-                    "..", // in Configuration
-                    "..", // in bin
-                    "..", // in "LockCheck.Tests"
-                    "..", // in "test"
-                    $@"LCTestTarget.{runtimeIdentifier}",
-                    "bin",
-                    configuration.ToString(),
-                    targetFramework.ToString(),
-                    runtimeIdentifier,
-                    $"LCTestTarget{extension}"));
+            string clientFullPath = Path.Combine(
+                baseDir.ToString(),
+                $"LCTestTarget.{targetRid}",
+                "bin",
+                configuration.ToString(),
+                targetFramework.ToString(),
+                targetRid,
+                $"LCTestTarget{extension}");
+
+            clientFullPath = Path.GetFullPath(clientFullPath);
             return clientFullPath;
         }
 
@@ -281,6 +312,8 @@ namespace LockCheck.Tests
                     throw new InvalidOperationException($"Failed to start process: {si.FileName} {si.Arguments}");
                 }
 
+                s_selfJob.Value.AttachProcess(process);
+
                 process.BeginOutputReadLine();
 
                 if (waitForStartupComplete.Wait(TimeSpan.FromSeconds(20)))
@@ -296,10 +329,10 @@ namespace LockCheck.Tests
             {
                 try
                 {
-                    Console.WriteLine($"KILL IT .... {process?.Id}");
+                    Console.WriteLine($"Killing test target process with process ID {process?.Id} ...");
                     process?.Kill();
                     process?.WaitForExit();
-                    Console.WriteLine("KILLED IT.");
+                    Console.WriteLine("Process killed.");
                 }
                 catch (InvalidOperationException)
                 {
@@ -310,8 +343,113 @@ namespace LockCheck.Tests
                     process?.Dispose();
                 }
 
-                tempDir.Delete();
+                tempDir.TryDelete();
             }
+        }
+
+        /// <summary>
+        /// Get the part of the <paramref name="path"/> before the <i>last</i> occurrence of <paramref name="segment"/>.
+        /// </summary>
+        /// <remarks>
+        /// The specified <paramref name="segment"/> must appear between to directory separator chars (<c>\</c> or <c>/</c>).
+        /// Both are considered on every platform. Partial matches (e.g. "foo" in "/foobar/x") are not considered. Only the
+        /// last occurrence is considered (e.g. "foo" with "/x/foo/bar/foo" sets the prefix to "/x/foo/bar" not "/x/")
+        /// <br/>
+        /// Consider the following:
+        /// <pre>
+        ///   path               segment          prefix
+        ///   /usr/local/bin     usr              "/"
+        ///   usr/local/bin      usr              ""
+        ///   \\User\\Admin      User             "\\"
+        ///   User\\Admin        User             ""
+        ///   C:\\User\\Admin    User             "C:\\"
+        /// </pre>
+        /// </remarks>
+        /// <param name="path"></param>
+        /// <param name="segment"></param>
+        /// <param name="prefix"></param>
+        /// <returns>
+        /// <c>true</c> if <paramref name="segment"/> appears in <paramref name="path"/>.
+        /// <c>false</c> if <paramref name="segment"/> does not appear in <paramref name="path"/>.
+        /// </returns>
+        internal static bool TryGetPathBeforeLastSegment(string path, string segment, [NotNullWhen(true)] out string? prefix)
+        {
+            int index = path.LastIndexOf(segment, StringComparison.Ordinal);
+
+            if (index == -1)
+            {
+                prefix = null;
+                return false;
+            }
+
+            // Check if the segment is at the end or followed by a path separator
+            if (index + segment.Length == path.Length ||
+                path[index + segment.Length] == '\\' ||
+                path[index + segment.Length] == '/')
+            {
+                prefix = path.Substring(0, index);
+                return true;
+            }
+
+            // An actual path segment contains only part of the search segment
+            prefix = null;
+            return false;
+        }
+
+        internal static bool TryGetPathAfterLastSegment(string path, string segment, [NotNullWhen(true)] out string? suffix)
+        {
+            int index = path.LastIndexOf(segment, StringComparison.Ordinal);
+
+            if (index == -1)
+            {
+                suffix = null;
+                return false;
+            }
+
+            // Check if the segment is at the end or followed by a path separator
+            if (index + segment.Length == path.Length ||
+                path[index + segment.Length] == '\\' ||
+                path[index + segment.Length] == '/')
+            {
+                // Calculate the start index of the part after the segment
+                int suffixStartIndex = index + segment.Length;
+
+                // If the suffix starts at the end of the path, return an empty string
+                if (suffixStartIndex >= path.Length)
+                {
+                    suffix = string.Empty;
+                }
+                else
+                {
+                    suffix = path.Substring(suffixStartIndex);
+                }
+
+                return true;
+            }
+
+            // An actual path segment contains only part of the search segment
+            suffix = null;
+            return false;
+        }
+
+        internal static string GetCurrentRuntimeIdentifier()
+        {
+#if NET
+            return RuntimeInformation.RuntimeIdentifier;
+#else
+            // RuntimeInformation.RuntimeIdentifier does not exist in .NET Framework.
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return $"win-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                return $"linux-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
+            }
+
+            throw new InvalidOperationException($"Cannot get RID for '{RuntimeInformation.OSDescription}' and '{RuntimeInformation.ProcessArchitecture}'.");
+#endif
         }
     }
 }

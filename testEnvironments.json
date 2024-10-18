@@ -1,4 +1,4 @@
-﻿{
+{
   "version": "1",
   "environments": [
     // See https://aka.ms/remotetesting for more details
@@ -9,9 +9,9 @@
       "wslDistribution": "Ubuntu"
     },
     {
-      "name": "Docker dotnet/sdk",
+      "name": "Docker dotnet/sdk:8.0",
       "type": "docker",
-      "dockerImage": "mcr.microsoft.com/dotnet/sdk"
+      "dockerImage": "mcr.microsoft.com/dotnet/sdk:8.0"
     }
   ]
 }

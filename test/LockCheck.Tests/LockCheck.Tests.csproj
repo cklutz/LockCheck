@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -18,7 +19,7 @@
   supported on Linux anyway, and this safes us some #if/#endif juggling in the Linux
   sources. -->
   <ItemGroup Condition="'$(IsNetFramework)' == 'true'">
-    <Compile Remove="Linux/**/*.cs"/>
+    <Compile Remove="Linux/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
