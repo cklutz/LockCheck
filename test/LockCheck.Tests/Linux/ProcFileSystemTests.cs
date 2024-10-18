@@ -2,11 +2,13 @@ using System;
 using System.Diagnostics;
 using System.Text;
 using LockCheck.Linux;
+using LockCheck.Tests.Tooling;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LockCheck.Tests.Linux
 {
     [SupportedTestClassPlatform("linux")]
+    [TestCategory("linux")]
     public partial class ProcFileSystemTests
     {
         [TestMethod]

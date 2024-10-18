@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using LockCheck.Tests.Windows;
 
-namespace LockCheck.Tests
+namespace LockCheck.Tests.Tooling
 {
     internal interface IJobObject : IDisposable
     {

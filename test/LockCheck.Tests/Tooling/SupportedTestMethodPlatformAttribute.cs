@@ -2,28 +2,11 @@ using System;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LockCheck.Tests
+namespace LockCheck.Tests.Tooling
 {
-    public sealed class SupportedTestClassPlatformAttribute : TestClassAttribute
-    {
-        public SupportedTestClassPlatformAttribute(string platformName)
-        {
-            PlatformName = platformName;
-        }
-
-        public string PlatformName { get; }
-
-        public override TestMethodAttribute? GetTestMethodAttribute(TestMethodAttribute? testMethodAttribute)
-        {
-            if (testMethodAttribute is SupportedTestMethodPlatformAttribute ta)
-            {
-                return ta;
-            }
-
-            return new SupportedTestMethodPlatformAttribute(base.GetTestMethodAttribute(testMethodAttribute), PlatformName.ToString());
-        }
-    }
-
+    /// <summary>
+    /// Only executes the test method if the given test platform matches the current one.
+    /// </summary>
     public sealed class SupportedTestMethodPlatformAttribute : TestMethodAttribute
     {
         private readonly TestMethodAttribute? _attr;
@@ -43,10 +26,22 @@ namespace LockCheck.Tests
 
         public override TestResult[] Execute(ITestMethod testMethod)
         {
-            // Report status passed. Most examples on the Internet use "Inconclusive".
-            // This is not how we like to have it, because it looks "bad" in test reports
-            // and might hide actual issues to easily.
-            var outcomeIfSkipped = UnitTestOutcome.Passed;
+            // Default status if platform doesn't match.
+            //
+            // Most examples on the Internet use "Inconclusive".
+            // Technically, there is nothing inconclusive here, because we *know* they
+            // cannot simply run on the given platform. It would be nice if MSTest had
+            // some explicit "skipped" status. It does have the [Ignore] attribute, but
+            // this status cannot be applied programmatically.
+            //
+            // We use "NotFound" because that has the following effects:
+            //
+            // - CLI (dotnet test/vstest.console.exe) reports the tests as "skipped" (Go figure!)
+            // - VS Test Explorer shows them with a blue Information icon, rather than the
+            //   yellow Warning icon that you would get for Inconclusive..
+            //
+            var outcomeIfSkipped = UnitTestOutcome.NotFound;
+
             OSPlatform platform;
             switch (PlatformName.ToLowerInvariant())
             {
@@ -72,7 +67,7 @@ namespace LockCheck.Tests
                     {
                         Outcome = outcomeIfSkipped,
                         TestFailureException = new PlatformNotSupportedException(
-                            $"Test has not been skipped, because it is only supported on platform '{PlatformName}'.")
+                            $"Test has not been executed, because it is only supported on platform '{PlatformName}'.")
                     }
                 ];
             }

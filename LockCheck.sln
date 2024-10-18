@@ -5,7 +5,7 @@ VisualStudioVersion = 17.11.35312.102
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LockCheck", "src\LockCheck\LockCheck.csproj", "{CC3BF24A-0A94-4655-A3EF-A722974F0872}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7866B6F0-7EDD-450D-9674-34C69C96CE23}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "(root)", "(root)", "{7866B6F0-7EDD-450D-9674-34C69C96CE23}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
@@ -37,6 +37,17 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCTestTarget.win-x64", "test\LCTestTarget.win-x64\LCTestTarget.win-x64.csproj", "{4A4981CF-FA1C-4D38-A39D-8F7AD1356151}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{970DB648-53EB-435B-9A8F-4BFFCA92A54B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{8D00B1B0-9527-4D0A-A259-77B86F4A6F00}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{734C8779-B662-4F7F-91E4-4DB6E1436BB0}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\dotnet-reusable-workflow.yml = .github\workflows\dotnet-reusable-workflow.yml
+		.github\workflows\dotnet-ubuntu.yml = .github\workflows\dotnet-ubuntu.yml
+		.github\workflows\dotnet-windows.yml = .github\workflows\dotnet-windows.yml
+		.github\workflows\update_gist.sh = .github\workflows\update_gist.sh
+		.github\workflows\upload-coverage-report.yml = .github\workflows\upload-coverage-report.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -85,6 +96,8 @@ Global
 		{F0279C06-9D4E-40D8-A569-3DFEB9926CD2} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{E7A79EE4-7331-4B50-A191-6F16C621F80C} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
 		{4A4981CF-FA1C-4D38-A39D-8F7AD1356151} = {018E2998-2375-4819-9B5A-554C4F46BC1F}
+		{8D00B1B0-9527-4D0A-A259-77B86F4A6F00} = {7866B6F0-7EDD-450D-9674-34C69C96CE23}
+		{734C8779-B662-4F7F-91E4-4DB6E1436BB0} = {8D00B1B0-9527-4D0A-A259-77B86F4A6F00}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9EFF99EA-5D9E-48B7-A277-E477BD55F517}

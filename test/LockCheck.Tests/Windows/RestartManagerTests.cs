@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using LockCheck.Tests.Tooling;
 using LockCheck.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LockCheck.Tests.Windows
 {
     [SupportedTestClassPlatform("windows")]
+    [TestCategory("windows")]
     public class RestartManagerTests
     {
         [TestMethod]
@@ -33,7 +35,7 @@ namespace LockCheck.Tests.Windows
             }
             finally
             {
-                di.Delete();
+                di.TryDelete();
             }
         }
 
@@ -54,7 +56,7 @@ namespace LockCheck.Tests.Windows
             }
             finally
             {
-                fi.Delete();
+                fi.TryDelete();
             }
         }
     }

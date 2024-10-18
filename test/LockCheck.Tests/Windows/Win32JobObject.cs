@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using LockCheck.Tests.Tooling;
 using Microsoft.Win32.SafeHandles;
 
 namespace LockCheck.Tests.Windows
