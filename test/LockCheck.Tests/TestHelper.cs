@@ -74,6 +74,10 @@ namespace LockCheck.Tests
             }
         }
 
+        // Assign all child processes we launch to this job object. This ensures that they
+        // will get terminated at the very least, when the test (testhost.exe) itself exits.
+        private static readonly Lazy<IJobObject> s_selfJob = new(() => JobObject.Create(), LazyThreadSafetyMode.ExecutionAndPublication);
+
         public static void CreateProcessWithCurrentDirectory(
             bool target64Bit,
             Action<(string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath)> action)
@@ -132,6 +136,8 @@ namespace LockCheck.Tests
                 {
                     throw new InvalidOperationException($"Failed to start test target: {si.FileName} {si.Arguments}");
                 }
+
+                s_selfJob.Value.AttachProcess(process);
 
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
@@ -280,6 +286,8 @@ namespace LockCheck.Tests
                 {
                     throw new InvalidOperationException($"Failed to start process: {si.FileName} {si.Arguments}");
                 }
+
+                s_selfJob.Value.AttachProcess(process);
 
                 process.BeginOutputReadLine();
 
