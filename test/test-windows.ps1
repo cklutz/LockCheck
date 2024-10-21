@@ -1,16 +1,17 @@
-# Simply run all test assemblies that are found in the tree.
-# If we have builds for debug and release, they are both run.
-# Requires that vstest.console.exe is in the PATH.
-
+$frameworks = ('net481', 'net8.0')
+$configurations = ('Debug', 'Release')
 $platforms = ('x86', 'x64')
-$assemblies = Get-ChildItem LockCheck.Tests.dll -Recurse | where { $_.FullName -like "*\bin\*" }
+$project = "$PSScriptRoot\LockCheck.Tests\LockCheck.Tests.csproj"
 
-foreach ($assembly in $assemblies) {
+foreach ($framework in $frameworks) {
     foreach ($platform in $platforms) {
-        echo "vstest.console.exe $assembly /Platform:$platform"
-        & vstest.console.exe $assembly /Platform:$platform
-        if ($LASTEXITCODE -ne 0) {
-            exit 1
+        foreach ($configuration in $configurations) {
+            Write-Host -Foreground DarkBlue "`n[$framework - $configuration - $platform]"
+
+            & dotnet test -c $configuration -f $framework -a $platform $project
+            if ($LASTEXITCODE -ne 0) {
+                exit 1
+            }
         }
     }
 }
