@@ -25,6 +25,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{018E2998-2375-4819-9B5A-554C4F46BC1F}"
 	ProjectSection(SolutionItems) = preProject
 		test\test-docker-linux.ps1 = test\test-docker-linux.ps1
+		test\test-linux.sh = test\test-linux.sh
 		test\test-windows.ps1 = test\test-windows.ps1
 	EndProjectSection
 EndProject

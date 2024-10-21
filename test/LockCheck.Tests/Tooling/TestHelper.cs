@@ -3,9 +3,11 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipes;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using LockCheck.Windows;
+using Microsoft.VisualStudio.TestPlatform.ObjectModel.Client;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LockCheck.Tests.Tooling
@@ -202,14 +204,13 @@ namespace LockCheck.Tests.Tooling
             //
             // Assume that LockCheck.Tests (this assembly) is located as follows:
             //
-            //       C:\...\test\LockCheck.Tests\bin\<Configuration>\<TargetFramework>[\<RID>]   (=> AppContext.BaseDirectory)
+            //       C:\...\artifacts\bin\LockCheck.Tests\<Pivot[_RID]>   (=> AppContext.BaseDirectory)
             //
-            // Note that sometimes this path ends with the RID, sometimes it doesn't. That depends
-            // on how the build/tests are invoked. So we have to cater for both possibilities.
+            // Depending on how we build (VS vs. dotnet build vs. publish), the <Pivot> might end with the <RID> or not.
             //
             // Assume further, that LCTestTarget projects are located as follows:
             //
-            //       C:\...\test\LCTestTarget.<TargetRID>\bin\<Configuration>\<TargetFramework>\<TargetRid>\LCTestTarget<Extension>
+            //       C:\...\artifacts\bin\LCTestTarget.<TargetRID>\<Pivot_TargetRid>\LCTestTarget<Extension>
             //
             // So, we want to run LCTestTarget from the same <TargetFramework> and <Configuration> as this assembly,
             // but obviously using the <TargetRid> requested.
@@ -219,43 +220,44 @@ namespace LockCheck.Tests.Tooling
             // Assume that the project (directory name) matches the assembly name.
             string projectName = typeof(TestHelper).Assembly.GetName().Name!;
 
-            // Get the part of the path before the project directory (e.g. "C:\...\test")
-            if (!TryGetPathBeforeLastSegment(AppContext.BaseDirectory, projectName, out var baseDir))
+            // Get the part of the path before the project directory (e.g. "C:\...\artifacts\bin")
+            if (!TryGetPathBeforeLastSegment(AppContext.BaseDirectory, projectName, out var artifactsBaseBinDir))
             {
                 throw new InvalidOperationException($"Failed to get project base directory from '{AppContext.BaseDirectory}' and '{projectName}'.");
             }
 
-            // Get the part of the path after the project directory (e.g. "\bin\<Configuration>\<TargetFramework>[\<RID>]")
-            if (!TryGetPathAfterLastSegment(AppContext.BaseDirectory, projectName, out var outputDirString))
+            // Get the part of the path after the project directory (e.g. "<Pivot[_RID]>")
+            if (!TryGetPathAfterLastSegment(AppContext.BaseDirectory, projectName, out var pivot))
             {
                 throw new InvalidOperationException($"Failed to get output directory from '{AppContext.BaseDirectory}' and '{projectName}'.");
             }
 
-            // See if the path after the project directory ends with the RID (of this assembly)..
-            var outputDir = outputDirString.AsSpan().Trim(separators);
-            var currentRid = GetCurrentRuntimeIdentifier().AsSpan();
-            if (outputDir.ToString().EndsWith(currentRid.ToString()))
-            {
-                // Remove the RID from the path, so that next we can always assume the same segment
-                // position for <Configuration> and <TargetFramework>.
-                outputDir = outputDir.Slice(0, outputDir.Length - currentRid.Length).Trim(separators);
-            }
-
-            // Now, outputDir should look like this bin\<Configuration>\<TargetFramework>
-            int pos = outputDir.LastIndexOfAny(separators);
+            // Split "pivot" into parts (might be either like "<configuration>_<tfm>_<rid>" or "<configuration>_<tfm>"
+            var pivotSpan = pivot.AsSpan().Trim(separators);
+            int pos = pivotSpan.LastIndexOf('_');
             Debug.Assert(pos != -1);
-            var targetFramework = outputDir.Slice(pos + 1);
-            outputDir = outputDir.Slice(0, pos).Trim(separators);
-            pos = outputDir.LastIndexOfAny(separators);
-            var configuration = outputDir.Slice(pos + 1);
+            if (MemoryExtensions.Equals(pivotSpan.Slice(pos + 1), GetCurrentRuntimeIdentifier(), StringComparison.OrdinalIgnoreCase))
+            {
+                // Strip off current RID of LockCheck.Tests - we don't need it.
+                pivotSpan = pivotSpan.Slice(0, pos);
+                // Readjust position to delimiter between configuration and tfm
+                pos = pivotSpan.LastIndexOf('_');
+                Debug.Assert(pos != -1);
+            }
+            
+            var configuration = pivotSpan.Slice(0, pos);
+            var targetFramework = pivotSpan.Slice(pos + 1);
+
+#if NET
+            var targetPivot = $"{configuration}_{targetFramework}_{targetRid}";
+#else
+            var targetPivot = string.Concat(configuration.ToString(), "_", targetFramework.ToString(), "_", targetRid);
+#endif
 
             string clientFullPath = Path.Combine(
-                baseDir.ToString(),
+                artifactsBaseBinDir,
                 $"LCTestTarget.{targetRid}",
-                "bin",
-                configuration.ToString(),
-                targetFramework.ToString(),
-                targetRid,
+                targetPivot,
                 $"LCTestTarget{extension}");
 
             clientFullPath = Path.GetFullPath(clientFullPath);
@@ -432,7 +434,7 @@ namespace LockCheck.Tests.Tooling
             return false;
         }
 
-        internal static string GetCurrentRuntimeIdentifier()
+        internal static ReadOnlySpan<char> GetCurrentRuntimeIdentifier()
         {
 #if NET
             return RuntimeInformation.RuntimeIdentifier;
@@ -441,11 +443,11 @@ namespace LockCheck.Tests.Tooling
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                return $"win-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
+                return $"win-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}".AsSpan();
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                return $"linux-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
+                return $"linux-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}".AsSpan();
             }
 
             throw new InvalidOperationException($"Cannot get RID for '{RuntimeInformation.OSDescription}' and '{RuntimeInformation.ProcessArchitecture}'.");

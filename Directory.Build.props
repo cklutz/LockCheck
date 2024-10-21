@@ -1,5 +1,8 @@
 <Project>
   <PropertyGroup>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+
     <TargetFrameworks>net8.0;net481</TargetFrameworks>
 
     <Nullable Condition="'$(TargetFramework)' == 'net8.0'">enable</Nullable>
