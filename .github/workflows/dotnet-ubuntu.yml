@@ -13,8 +13,8 @@ jobs:
         matrix:
           runs-on: ['ubuntu-latest']
           configuration: [Debug, Release]
-          dotnet-version: ['8.0.x']
-          tfm: ['net8.0']      
+          dotnet-version: ['9.0.x']
+          tfm: ['net8.0', 'net9.0']      
       uses: ./.github/workflows/dotnet-reusable-workflow.yml
       with:
         runs-on: ${{ matrix.runs-on }}

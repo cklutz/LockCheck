@@ -385,16 +385,54 @@ namespace LockCheck.Linux
             return args?.Length > 0 ? args[0] : null;
         }
 
-        private static ReadOnlySpan<char> GetField(ReadOnlySpan<char> content, char delimiter, int index)
+        internal static ReadOnlySpan<char> GetField(ReadOnlySpan<char> content, char delimiter, int index)
         {
-            int count = content.Count(delimiter) + 1;
-            Span<Range> ranges = count < 128 ? stackalloc Range[count] : new Range[count];
-            int num = MemoryExtensions.Split(content, ranges, delimiter);
-            if (index >= num)
+            if (index < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), index, $"Cannot access field at index {index}, only {num} fields available.");
+                throw new ArgumentOutOfRangeException(nameof(index), index, $"Field index cannot be negative.");
             }
+
+#if NET9_0_OR_GREATER
+            // PERF NOTE: For larger index values this will perform actually worse than the manual usage of
+            // Count()/MemoryExtensions.Split() below. However, currently we use rather small indexes (5 out of 52)
+            // where this performs actually better.
+            // Also, this is cleaner an less error prone.
+            // In .NET 10+ the ref struct enumerator returned here will implement IEnumerable<> so that we could
+            // try using LINQ here, to make things even more simple (and possibly performant, as LINQ is getting
+            // improved also!)
+
+            int count = 0;
+            foreach (var range in content.Split(delimiter))
+            {
+                if (count < index)
+                {
+                    count++;
+                    continue;
+                }
+                return content[range];
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(index), index, $"Cannot access field at index {index}, only {count} fields available.");
+#else
+            int fieldCount = content.Count(delimiter) + 1;
+            if (fieldCount <= index)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), index, $"Cannot access field at index {index}, only {fieldCount} fields available.");
+            }
+
+            // We need to split into N+1 fields, where N is the field denoted by the index.
+            // The extra field will receive the remainder of content, that doesn't need to
+            // be split further, because we're not interested. That also means, that if we
+            // are supposed to read the last field of content, we don't need that extra field.
+            int rangeCount = index == fieldCount - 1 ? index + 1 : index + 2;
+            Span<Range> ranges = rangeCount < 128 ? stackalloc Range[rangeCount] : new Range[rangeCount];
+            int num = MemoryExtensions.Split(content, ranges, delimiter);
+
+            // Shouldn't trigger, because of pre-checks done above.
+            Debug.Assert(num == rangeCount);
+
             return content[ranges[index]];
+#endif
         }
     }
 }

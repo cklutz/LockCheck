@@ -2,15 +2,13 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <IsPackable Condition="'$(TargetFramework)' != 'net8.0'">false</IsPackable>
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackAsTool>true</PackAsTool>
   </PropertyGroup>
 
   <PropertyGroup>
     <RollForward>major</RollForward>
-    <Version>1.0.1</Version>
-    <PackAsTool>true</PackAsTool>
-    <ToolCommandName>lockcheck</ToolCommandName>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>lockchecktool</PackageId>
     <Authors>cklutz</Authors>
     <Description>A tool to list processes locking a given file.</Description>
@@ -23,5 +21,22 @@
   <ItemGroup>
     <ProjectReference Include="..\LockCheck\LockCheck.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.6.143" PrivateAssets="all" />  
+  </ItemGroup>
+
+  <Target Name="AdjustPackagingDirectives" AfterTargets="CoreCompile">
+    <!-- Prevent "error NETSDK1054: only supports .NET Core." 
+    Since we still multi target net481 as well, we'd get this error otherwise. 
+    We cannot set these directly, because they are need to be set for cross-targeting
+    and not outer builds.
+    -->
+    <PropertyGroup>
+      <PackAsTool Condition="'$(TargetFramework)' == 'net481'">false</PackAsTool>
+      <IsPackable Condition="'$(TargetFramework)' == 'net481'">false</IsPackable>
+      <GeneratePackageOnBuild Condition="'$(TargetFramework)' == 'net481'">false</GeneratePackageOnBuild>
+    </PropertyGroup>
+  </Target>
 
 </Project>
