@@ -25,8 +25,8 @@ jobs:
     env:
       OUTPUT_DIR: _site/coverage
       WORKFLOW_SPEC: >
-        dotnet-windows.yml: coverage-report-windows-net8.0-Release,coverage-report-windows-net481-Release |
-        dotnet-ubuntu.yml:  coverage-report-ubuntu-net8.0-Release
+        dotnet-windows.yml: coverage-report-windows-net8.0-Release,coverage-report-windows-net9.0-Release,coverage-report-windows-net481-Release |
+        dotnet-ubuntu.yml:  coverage-report-ubuntu-net8.0-Release,coverage-report-ubuntu-net0.0-Release
     steps:
     - name: Checkout
       uses: actions/checkout@v4
