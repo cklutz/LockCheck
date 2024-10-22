@@ -62,5 +62,27 @@ namespace LockCheck.Tests.Linux
             Assert.AreEqual(expected.Length, args.Length);
             CollectionAssert.AreEqual(expected, args);
         }
+
+        [DataTestMethod]
+        [DataRow(0, "223424")]
+        [DataRow(1, "(bash)")]
+        [DataRow(2, "S")]
+        [DataRow(3, "223420")]
+        public void GetField_ShouldReturnField_WhenIndexIsInBounds(int index, string expected)
+        {
+            var result = ProcFileSystem.GetField("223424 (bash) S 223420".AsSpan(), ' ', index);
+            Assert.AreEqual(expected, result.ToString());
+        }
+
+        [DataTestMethod]
+        [DataRow(-1)]
+        [DataRow(4)]
+        [DataRow(int.MinValue)]
+        [DataRow(int.MaxValue)]
+        public void GetField_ShouldThrowArgumentOutOfRangeException_WhenIndexIsOutOfBounds(int index)
+        {
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => ProcFileSystem.GetField("223424 (bash) S 223420".AsSpan(), ' ', index));
+            Console.WriteLine(ex);
+        }
     }
 }

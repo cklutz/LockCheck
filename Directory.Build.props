@@ -3,14 +3,14 @@
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
 
-    <TargetFrameworks>net8.0;net481</TargetFrameworks>
-
-    <Nullable Condition="'$(TargetFramework)' == 'net8.0'">enable</Nullable>
-    <Nullable Condition="'$(TargetFramework)' == 'net481'">annotations</Nullable>
+    <TargetFrameworks>net8.0;net9.0;net481</TargetFrameworks>
 
     <IsNetFramework>false</IsNetFramework>
     <IsNetFramework Condition="'$(TargetFramework)' == 'net481'">true</IsNetFramework>
-    
+
+    <Nullable Condition="'$(IsNetFramework)' != 'true'">enable</Nullable>
+    <Nullable Condition="'$(IsNetFramework)' == 'true'">annotations</Nullable>
+
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CA1031;CA1303;CA1416;CA1801;CA1716;NU5105</NoWarn>
     <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
