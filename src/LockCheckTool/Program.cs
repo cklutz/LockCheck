@@ -1,102 +1,231 @@
 using System;
+using System.Collections.Generic;
+using System.CommandLine;
+using System.CommandLine.Builder;
+using System.CommandLine.IO;
+using System.CommandLine.Parsing;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+using LockCheck;
+using System.Diagnostics;
 
-namespace LockCheck;
+#if FEATURE_JMSE_QUERY
+using JsonCons.JmesPath;
+#endif
+
+namespace LockCheckTool;
 
 internal class Program
 {
-    private static readonly string s_name = typeof(Program).Assembly.GetName().Name!;
 
-    private static int Usage()
+    private class FileOutput : IOutput
     {
-        Console.Error.WriteLine(@"
-Usage:
-  {0} [options] <PATH>...
+        private static readonly byte[] s_newLineBytes = Environment.NewLine.Select(c => (byte)c).ToArray();
+        private readonly Stream _fileStream;
 
-Arguments:
-  <PATH>   The path or paths to check for.
+        public FileOutput(Stream fileStream)
+        {
+            _fileStream = fileStream;
+        }
 
-Options:
-  -d, --include-cwd    Check if a <PATH> is the current working directory for a process.
-      --use-rm         Use RestartManager API (Windows only).
-", s_name);
+        public void Dispose()
+        {
+            _fileStream.Dispose();
+        }
 
-        return -1;
+        public void Write(char c)
+        {
+            _fileStream.Write([(byte)c], 0, 1);
+        }
+
+        public void Write(string? text)
+        {
+            if (text != null)
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(text);
+                _fileStream.Write(bytes, 0, bytes.Length);
+            }
+        }
+
+        public void WriteLine(string? text)
+        {
+            if (text != null)
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(text + Environment.NewLine);
+                _fileStream.Write(bytes, 0, bytes.Length);
+            }
+        }
+
+        public void WriteLine()
+        {
+            _fileStream.Write(s_newLineBytes, 0, s_newLineBytes.Length);
+        }
     }
 
-    private static int Main(string[] args)
+    private class ConsoleOutput : IOutput
     {
+        private readonly IStandardStreamWriter _out;
+        public ConsoleOutput(IStandardStreamWriter @out) => _out = @out;
+        public void Dispose() { }
+        public void Write(char c) => _out.Write(c.ToString());
+        public void Write(string? value) => _out.Write(value);
+        public void WriteLine(string? value) => _out.WriteLine(value ?? "");
+        public void WriteLine() => _out.WriteLine();
+    }
+
+    /*
+     *  lockchecktool locked list <PATH>
+     * 
+     */
+
+
+
+    private static bool s_verbose;
+
+
+#if NET
+    private static void Verbose(IConsole console, ref DefaultInterpolatedStringHandler handler)
+    {
+        if (s_verbose)
+        {
+            console.Out.WriteLine(handler.ToStringAndClear());
+        }
+    }
+#else
+    private static void Verbose(IConsole console, string str)
+    {
+        if (s_verbose)
+        {
+            console.Out.WriteLine(str);
+        }
+    }
+#endif
+
+    private static async Task<int> Main(string[] args)
+    {
+        if (Environment.GetEnvironmentVariable("LOCKCHECKTOOL_DEBUG") == "1")
+        {
+            Debugger.Launch();
+        }
+
         try
         {
-            var features = LockManagerFeatures.UseLowLevelApi;
+            var verboseOption = new Option<bool>("--verbose", "Show additional output");
 
-            int i;
-            for (i = 0; i < args.Length; i++)
+            var rootCommand = new RootCommand("Check for files/directories that are locked (in-use) by processes");
+            rootCommand.AddGlobalOption(verboseOption);
+
+            var lockedCommand = new Command("locked", "Handled locked files/directories");
+            rootCommand.AddCommand(lockedCommand);
+
+            var includeCwdOption = new Option<bool>(["--include-cwd", "-d"], "Check for processes' current working directories");
+            var useRmOption = new Option<bool>("--use-rm", "Use RestartManager API (Windows only)");
+            var outputPathOption = new Option<string>("--output", "Write output into specified file")
+                .LegalFilePathsOnly();
+            var outputFormatOption = new Option<OutputFormat>(["--output-format", "-o"], "Output format");
+#if FEATURE_JMSE_QUERY
+            var queryOption = new Option<string>("--query", "JMESPath query string. See http://jmespath.org/ for more information and examples");
+#endif
+            var pathsArgument = new Argument<IEnumerable<string>>("path", "The path or paths to check for")
+                .LegalFilePathsOnly();
+
+            var listCommand = new Command("list", "List locked files/directories");
+            lockedCommand.AddCommand(listCommand);
+            listCommand.AddOption(includeCwdOption);
+            listCommand.AddOption(useRmOption);
+            listCommand.AddOption(outputFormatOption);
+            listCommand.AddOption(outputPathOption);
+#if FEATURE_JMSE_QUERY
+            listCommand.AddOption(queryOption);
+#endif
+            listCommand.AddArgument(pathsArgument);
+
+            listCommand.SetHandler((context) =>
             {
-                if (args[i] == "--include-cwd" || args[i] == "-d")
+                bool useRm = context.ParseResult.GetValueForOption(useRmOption);
+                var features = useRm ? default : LockManagerFeatures.UseLowLevelApi;
+
+                bool includeCwd = context.ParseResult.GetValueForOption(includeCwdOption);
+                if (includeCwd)
                 {
                     features |= LockManagerFeatures.CheckDirectories;
                 }
-                else if (args[i].Equals("--use-rm"))
-                {
-                    features &= ~LockManagerFeatures.UseLowLevelApi;
-                }
-                else if (args[i] == "--help" || args[i] == "-h" || args[i] == "-?")
-                {
-                    return Usage();
-                }
-                else if (args[i].StartsWith("--") && args[i].Length > 2)
-                {
-                    Console.Error.WriteLine($"Unknown option '{args[0]}'. Run `{s_name} --help` for more information.");
-                    return -1;
-                }
-                else
-                {
-                    // Not an option or only "--".
-                    break;
-                }
-            }
 
-            args = args.Skip(i).ToArray();
-            if (args.Length == 0)
+                var paths = context.ParseResult.GetValueForArgument(pathsArgument);
+                var infos = LockManager.GetLockingProcessInfos(paths.ToArray(), features);
+                Verbose(context.Console, $"Found {infos.Count():N0} matching processes");
+
+                string? outputPath = context.ParseResult.GetValueForOption(outputPathOption);
+                var outputFormat = context.ParseResult.GetValueForOption(outputFormatOption);
+
+#if FEATURE_JMSE_QUERY
+                string? query = context.ParseResult.GetValueForOption(queryOption);
+#else
+                string? query = null;
+#endif
+
+                IOutput? actualOutput = null;
+                try
+                {
+                    if (outputPath != null)
+                    {
+                        string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
+                        if (directory != null && !Directory.Exists(directory))
+                        {
+                            Directory.CreateDirectory(directory);
+                        }
+
+                        actualOutput = new FileOutput(File.OpenWrite(outputPath));
+                    }
+                    else
+                    {
+                        actualOutput = new ConsoleOutput(context.Console.Out);
+                    }
+
+                    switch (outputFormat)
+                    {
+                        case OutputFormat.None:
+                            OutputPlain(actualOutput, infos);
+                            break;
+                        case OutputFormat.Json:
+                        case OutputFormat.PrettyJson:
+                            OutputJson(actualOutput, outputFormat, query, infos);
+                            break;
+                        case OutputFormat.Csv:
+                            OutputDelimited(actualOutput, ',', query, infos);
+                            break;
+                        case OutputFormat.Tsv:
+                            OutputDelimited(actualOutput, '\t', query, infos);
+                            break;
+                    }
+                }
+                finally
+                {
+                    actualOutput?.Dispose();
+                }
+            });
+
+            var commandLineBuilder = new CommandLineBuilder(rootCommand);
+            commandLineBuilder.AddMiddleware(async (context, next) =>
             {
-                return Usage();
-            }
-
-            var infos = LockManager.GetLockingProcessInfos(args, features);
-            if (!infos.Any())
-            {
-                Console.WriteLine("No locking processes found.");
-                return 0;
-            }
-
-            bool first = true;
-            foreach (var p in infos)
-            {
-                if (!first)
+                if (context.ParseResult.GetValueForOption(verboseOption))
                 {
-                    Console.WriteLine("----------------------------------------------------");
+                    s_verbose = true;
                 }
 
-                Console.WriteLine("Process ID        : {0}", p.ProcessId);
-                Console.WriteLine("Application Name  : {0}", p.ApplicationName);
-                Console.WriteLine("Path              : {0}", p.ExecutableFullPath);
-                Console.WriteLine("Process Start Time: {0}", p.StartTime.ToString("F"));
-                Console.WriteLine("Owner             : {0}", p.Owner);
-                Console.WriteLine("SessionId         : {0}", p.SessionId);
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    Console.WriteLine("LockAccess        : {0}", p.LockAccess);
-                    Console.WriteLine("LockMode          : {0}", p.LockMode);
-                    Console.WriteLine("LockType          : {0}", p.LockType);
-                }
-
-                first = false;
-            }
+                await next(context);
+            });
+            commandLineBuilder.UseDefaults();
+            var parser = commandLineBuilder.Build();
+            var parseResult = parser.Parse(args);
+            return await parseResult.InvokeAsync();
         }
         catch (Win32Exception ex)
         {
@@ -108,7 +237,87 @@ Options:
             Console.Error.WriteLine(ex);
             return ex.HResult;
         }
+    }
 
-        return 0;
+    private enum OutputFormat
+    {
+        None,
+        Json,
+        PrettyJson,
+        Csv,
+        Tsv
+    }
+
+    private static void OutputDelimited(IOutput output, char delimiter, string? query, IEnumerable<ProcessInfo> processInfos)
+    {
+        var element = GetAsJsonElement(query, processInfos);
+        FormatSupport.FormatAsRowsWithDelimiter(element, delimiter, output, true);
+    }
+
+    private static void OutputJson(IOutput output, OutputFormat outputFormat, string? query, IEnumerable<ProcessInfo> processInfos)
+    {
+        string json = GetJson(query, processInfos, outputFormat == OutputFormat.PrettyJson);
+        output.WriteLine(json);
+    }
+
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+
+    private static JsonElement GetAsJsonElement(string? query, IEnumerable<ProcessInfo> processInfos)
+    {
+#if FEATURE_JMSE_QUERY
+        if (query != null)
+        {
+            using var doc = JsonSerializer.SerializeToDocument(processInfos, s_jsonOptions);
+            var transformed = JsonTransformer.Transform(doc.RootElement, query);
+            return transformed.RootElement;
+        }
+#endif
+
+        return JsonSerializer.SerializeToDocument(processInfos, s_jsonOptions).RootElement;
+    }
+
+    private static string GetJson(string? query, IEnumerable<ProcessInfo> processInfos, bool pretty)
+    {
+        var options = pretty ? new JsonSerializerOptions(s_jsonOptions) { WriteIndented = true } : s_jsonOptions;
+
+        string json;
+        if (query != null)
+        {
+            var transformed = GetAsJsonElement(query, processInfos);
+            json = JsonSerializer.Serialize(transformed, options);
+        }
+        else
+        {
+            json = JsonSerializer.Serialize(processInfos, options);
+        }
+        return json;
+    }
+
+    private static void OutputPlain(IOutput output, IEnumerable<ProcessInfo> processInfos)
+    {
+        bool first = true;
+        foreach (var p in processInfos)
+        {
+            if (!first)
+            {
+                output.WriteLine("----------------------------------------------------");
+            }
+
+            output.WriteLine($"Process ID        : {p.ProcessId}");
+            output.WriteLine($"Application Name  : {p.ApplicationName}");
+            output.WriteLine($"Path              : {p.ExecutableFullPath}");
+            output.WriteLine($"Process Start Time: {p.StartTime:F}");
+            output.WriteLine($"Owner             : {p.Owner}");
+            output.WriteLine($"SessionId         : {p.SessionId}");
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                output.WriteLine($"LockAccess        : {p.LockAccess}");
+                output.WriteLine($"LockMode          : {p.LockMode}");
+                output.WriteLine($"LockType          : {p.LockType}");
+            }
+
+            first = false;
+        }
     }
 }

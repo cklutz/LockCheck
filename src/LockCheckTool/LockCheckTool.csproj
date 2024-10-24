@@ -5,6 +5,7 @@
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackAsTool>true</PackAsTool>
+    <DefineConstants Condition="'$(TargetFramework)' != 'net481'">$(DefineConstants);FEATURE_JMSE_QUERY</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -23,7 +24,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nerdbank.GitVersioning" Version="3.6.143" PrivateAssets="all" />  
+    <PackageReference Include="Nerdbank.GitVersioning" Version="3.6.143" PrivateAssets="all" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="JsonCons.JmesPath" Version="1.0.0" Condition="'$(TargetFramework)' != 'net481'"/>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" Condition="'$(TargetFramework)' == 'net481'"/>
   </ItemGroup>
 
   <Target Name="AdjustPackagingDirectives" AfterTargets="CoreCompile">
