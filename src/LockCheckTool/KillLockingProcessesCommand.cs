@@ -23,18 +23,15 @@ internal class KillLockingProcessesCommand : ProcessInfoBaseCommand
         AddOption(AllUsers);
         AddOption(IncludeCritical);
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        var known = LockManager.GetKnownCriticalProcesses();
+        if (known.Any())
         {
-            var known = LockManager.GetKnownCriticalProcesses();
-            if (known.Any())
-            {
-                var sb = new StringBuilder(IncludeCritical.Description);
-                sb.AppendLine(".");
-                sb.AppendLine("Known critical system processes:");
-                sb.Append("  ");
-                sb.AppendLine(string.Join($"{Environment.NewLine}  ", known.OrderBy(s => s)));
-                IncludeCritical.Description = sb.ToString();
-            }
+            var sb = new StringBuilder(IncludeCritical.Description);
+            sb.AppendLine(".");
+            sb.AppendLine("Known critical system processes:");
+            sb.Append("  ");
+            sb.AppendLine(string.Join($"{Environment.NewLine}  ", known.OrderBy(s => s)));
+            IncludeCritical.Description = sb.ToString();
         }
     }
 
