@@ -74,6 +74,11 @@ public abstract class ProcessInfo
     /// </summary>
     public string? LockAccess { get; protected set; }
 
+    /// <summary>
+    /// A platform specific flag that indicates if the curren process is critical to the system's function.
+    /// </summary>
+    public bool? IsCritical { get; protected set; }
+
     public override int GetHashCode()
     {
 #if NET

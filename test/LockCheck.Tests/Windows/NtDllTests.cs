@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using LockCheck.Tests.Tooling;
 using LockCheck.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

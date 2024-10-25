@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -6,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
 #pragma warning disable IDE1006 // Naming Styles - off here, because we want to use native names
@@ -28,6 +30,7 @@ internal static partial class NativeMethods
     internal const int ERROR_MORE_DATA = 234;
     internal const int ERROR_ACCESS_DENIED = 5;
     internal const int ERROR_INVALID_HANDLE = 6;
+    internal const int ERROR_GEN_FAILURE = 31;
     internal const int ERROR_SHARING_VIOLATION = 32;
     internal const int ERROR_LOCK_VIOLATION = 33;
     internal const int ERROR_CANCELLED = 1223;
@@ -77,7 +80,7 @@ internal static partial class NativeMethods
 
 #if NET
     [LibraryImport(NtDll)]
-    internal static partial uint NtQueryInformationProcess(SafeProcessHandle hProcess, 
+    internal static partial uint NtQueryInformationProcess(SafeProcessHandle hProcess,
         PROCESS_INFORMATION_CLASS processInformationClass,
         ref PROCESS_BASIC_INFORMATION processInformation, int processInformationLength, IntPtr returnLength);
 #else
@@ -265,6 +268,119 @@ internal static partial class NativeMethods
     internal static SafeProcessHandle OpenProcessLimited(int pid) => OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
     internal static SafeProcessHandle OpenProcessRead(int pid) => OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
 
+    internal static bool IsCurrentProcessWow64Process { get; } = Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess;
+
+#if NET
+    [LibraryImport(KernelDll, SetLastError = true)]
+    internal static partial int GetProcessId(SafeProcessHandle handle);
+#else
+    [DllImport(KernelDll, SetLastError = true)]
+    internal static extern int GetProcessId(SafeProcessHandle handle);
+#endif
+
+#if NET
+    [LibraryImport(KernelDll, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsProcessCritical(SafeProcessHandle hProcess, [MarshalAs(UnmanagedType.Bool)] out bool critical);
+#else
+    [DllImport(KernelDll, SetLastError = true)]
+    private static extern bool IsProcessCritical(SafeProcessHandle hProcess, out bool critical);
+#endif
+
+    private static readonly string[] s_criticalNames =
+    {
+        // List taken from taskmgr.exe "strings"
+        "%windir%\\explorer.exe",
+        "%windir%\\system32\\ntoskrnl.exe",
+        "%windir%\\system32\\winlogon.exe",
+        "%windir%\\system32\\wininit.exe",
+        "%windir%\\system32\\csrss.exe",
+        "%windir%\\system32\\lsass.exe",
+        "%windir%\\system32\\smss.exe",
+        "%windir%\\system32\\services.exe",
+        "%windir%\\system32\\taskeng.exe",
+        "%windir%\\system32\\taskhost.exe",
+        "%windir%\\system32\\dwm.exe",
+        "%windir%\\system32\\conhost.exe",
+        "%windir%\\system32\\svchost.exe",
+        "%windir%\\system32\\sihost.exe",
+        "%windir%\\system32\\backgroundTaskHost.exe",
+        "%windir%\\system32\\backgroundTransferHost.exe",
+        "%windir%\\system32\\WerFault.exe",
+        "%programfiles%\\Windows Defender\\msmpeng.exe",
+        "%programfiles%\\Windows Defender\\nissrv.exe",
+    };
+
+    private static readonly Lazy<HashSet<string>> s_critical = new(() =>
+    {
+        var result = new HashSet<string>(s_criticalNames.Length, StringComparer.OrdinalIgnoreCase);
+
+        foreach (string name in s_criticalNames)
+        {
+            if (IsCurrentProcessWow64Process)
+            {
+                // 32 bit process on 64 bit OS. Make sure we use 64 bit directories.
+                // Note: we don't have to replace "%windir%\system32" with "%windir%\sysnative"
+                // because the full path we compare with is ultimately retrieved by the QueryFullProcessImageName() Win32 API.
+                // That in turn, seems to always return the "actual" path. So even when running as 32 bit app on a 64 bit Windows
+                // (i.e. WOW64), it will return the true path.
+                string nativeName = name.Replace("%programfiles%", "%programw6432%");
+                result.Add(Environment.ExpandEnvironmentVariables(nativeName));
+            }
+            else
+            {
+                result.Add(Environment.ExpandEnvironmentVariables(name));
+            }
+        }
+
+        return result;
+    }, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    internal static IEnumerable<string> GetKnownCriticalProcesses() => s_critical.Value;
+
+    internal static bool? IsProcessCritical(SafeProcessHandle hProcess, IHasErrorState? errorState = null)
+    {
+        if (hProcess.IsInvalid)
+        {
+            errorState?.SetError();
+            return null;
+        }
+
+        bool? result = IsProcessCriticalByHandle(hProcess, errorState);
+        if (result != null)
+        {
+            return result;
+        }
+
+        return IsProcessCriticalByImagePath(hProcess, errorState);
+    }
+
+    // internal for unit test access
+    internal static bool? IsProcessCriticalByHandle(SafeProcessHandle hProcess, IHasErrorState? errorState)
+    {
+        if (!IsProcessCritical(hProcess, out bool critical))
+        {
+            errorState?.SetError(errorCode: Marshal.GetLastWin32Error());
+            return null;
+        }
+
+        return critical;
+    }
+
+    // internal for unit test access
+    internal static bool? IsProcessCriticalByImagePath(SafeProcessHandle hProcess, IHasErrorState? errorState)
+    {
+        // Check hardcoded list
+        string? imagePath = GetProcessImagePath(hProcess, throwOnError: false);
+        if (imagePath == null)
+        {
+            errorState?.SetError(errorCode: Marshal.GetLastWin32Error());
+            return null;
+        }
+
+        return s_critical.Value.Contains(imagePath);
+    }
+
 #if NET
     [LibraryImport(KernelDll, SetLastError = true, EntryPoint = "QueryFullProcessImageNameW")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -274,50 +390,100 @@ internal static partial class NativeMethods
     private static extern bool QueryFullProcessImageName(SafeProcessHandle hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
 #endif
 
-    internal static unsafe string? GetProcessImagePath(SafeProcessHandle hProcess, bool throwOnError = false)
+    private class DisableWow64FsRedirectionScope : IDisposable
     {
-#if NET
-        const int stackSize = 260; // Actual Windows MAX_PATH value. But paths can get larger (up to 32k).
-        int bufferSize = stackSize;
-        Span<char> buffer = stackalloc char[bufferSize];
+        private IntPtr _oldValue = IntPtr.Zero;
+        private bool _shouldDispose;
 
-        while (true)
+        public DisableWow64FsRedirectionScope()
         {
-            fixed (char* bufferPtr = buffer)
+            if (IsCurrentProcessWow64Process)
             {
-                bool ret = QueryFullProcessImageName(hProcess, 0, bufferPtr, ref bufferSize);
-                if (!ret)
+                if (!Wow64DisableWow64FsRedirection(ref _oldValue))
                 {
-                    int code = Marshal.GetLastWin32Error();
-                    if (code != ERROR_INSUFFICIENT_BUFFER)
-                    {
-                        if (!throwOnError)
-                        {
-                            return null;
-                        }
-
-                        throw new System.ComponentModel.Win32Exception(code);
-                    }
-
-                    // Buffer too small. Double size; from now on need heap alloc to conserve stack space.
-                    bufferSize *= 2;
-                    buffer = new char[bufferSize];
+                    // Shouldn't happen, but since we haven't actually changed the thread's state,
+                    // an exception is sufficient.
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
                 }
-                else
-                {
-                    return buffer.Slice(0, bufferSize).Trim('\0').ToString();
-                }
+
+                _shouldDispose = true;
             }
         }
-#else
-        var sb = new StringBuilder(4096);
-        int size = sb.Capacity;
-        if (QueryFullProcessImageName(hProcess, 0, sb, ref size))
+
+        public void Dispose()
         {
-            return sb.ToString();
+            if (_shouldDispose)
+            {
+                if (!Wow64RevertWow64FsRedirection(_oldValue))
+                {
+                    // This is catastrophic; any FS related function could not return unexpected values.
+                    // It shouldn't *really* happen either, these APIs really just set a TLS slot for the current thread.
+                    int code = Marshal.GetLastWin32Error();
+                    Environment.FailFast($"Failed to restore WOW64 FS redirection: 0x{code:X8}");
+                }
+
+                _shouldDispose = false;
+            }
         }
-        return null;
+    }
+
+    internal static unsafe string? GetProcessImagePath(SafeProcessHandle hProcess, bool throwOnError = false)
+    {
+        // It *seems* as if QueryFullProcessImageName() always returns the "true" path, so no redirections
+        // applied (e.g. for 64 bit C:\Windows\System32\notepad.exe it really does return that path and
+        // not C:\Windows\sysnative\notepad.exe). However, I couldn't find any affirmative documentation
+        // on that. So disable FS redirection anyway.
+        using var disableFsRedirect = new DisableWow64FsRedirectionScope();
+        {
+#if NET
+            const int stackSize = 260; // Actual Windows MAX_PATH value. But paths can get larger (up to 32k).
+            int bufferSize = stackSize;
+            Span<char> buffer = stackalloc char[bufferSize];
+
+            while (true)
+            {
+                fixed (char* bufferPtr = buffer)
+                {
+                    bool ret = QueryFullProcessImageName(hProcess, 0, bufferPtr, ref bufferSize);
+                    if (!ret)
+                    {
+                        int code = Marshal.GetLastWin32Error();
+                        if (code != ERROR_INSUFFICIENT_BUFFER)
+                        {
+                            if (!throwOnError)
+                            {
+                                return null;
+                            }
+
+                            throw new Win32Exception(code);
+                        }
+
+                        // Buffer too small. Double size; from now on need heap alloc to conserve stack space.
+                        bufferSize *= 2;
+                        buffer = new char[bufferSize];
+                    }
+                    else
+                    {
+                        return buffer.Slice(0, bufferSize).Trim('\0').ToString();
+                    }
+                }
+            }
+#else
+            var sb = new StringBuilder(4096);
+            int size = sb.Capacity;
+            if (QueryFullProcessImageName(hProcess, 0, sb, ref size))
+            {
+                return sb.ToString();
+            }
+
+            if (throwOnError)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+
+            return null;
 #endif
+        }
     }
 
 #if NET
@@ -357,6 +523,21 @@ internal static partial class NativeMethods
 
         return -1;
     }
+
+    internal static string? GetSystemAccountName()
+    {
+        try
+        {
+            var sid = new SecurityIdentifier("S-1-5-18");
+            return sid.Translate(typeof(NTAccount)).Value;
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
 
     internal static string? GetProcessOwner(SafeProcessHandle handle)
     {
@@ -561,6 +742,14 @@ internal static partial class NativeMethods
 
     [LibraryImport(KernelDll, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool Wow64DisableWow64FsRedirection(ref IntPtr oldValue);
+
+    [LibraryImport(KernelDll, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool Wow64RevertWow64FsRedirection(IntPtr oldValue);
+
+    [LibraryImport(KernelDll, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool ReadProcessMemory(SafeProcessHandle hProcess, IntPtr lpBaseAddress, ref IntPtr lpBuffer, IntPtr dwSize, IntPtr lpNumberOfBytesRead);
 
     [LibraryImport(KernelDll, SetLastError = true)]
@@ -590,6 +779,14 @@ internal static partial class NativeMethods
     [DllImport(KernelDll, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool IsWow64Process(SafeProcessHandle hProcess, [MarshalAs(UnmanagedType.Bool)] out bool wow64Process);
+
+    [DllImport(KernelDll, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool Wow64DisableWow64FsRedirection(ref IntPtr oldValue);
+
+    [DllImport(KernelDll, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool Wow64RevertWow64FsRedirection(IntPtr oldValue);
 
     [DllImport(KernelDll, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -715,6 +912,6 @@ internal static partial class NativeMethods
 #if NET
     internal static string GetMessage(int errorCode) => $"{Marshal.GetPInvokeErrorMessage(errorCode)} (0x{errorCode:X8})";
 #else
-    internal static string GetMessage(int errorCode) => $"{new Win32Exception(errorCode).Message}  (0x{errorCode:X8})"; 
+    internal static string GetMessage(int errorCode) => $"{new Win32Exception(errorCode).Message}  (0x{errorCode:X8})";
 #endif
 }

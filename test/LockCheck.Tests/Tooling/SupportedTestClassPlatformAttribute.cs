@@ -8,11 +8,19 @@ namespace LockCheck.Tests.Tooling;
 public sealed class SupportedTestClassPlatformAttribute : TestClassAttribute
 {
     public SupportedTestClassPlatformAttribute(string platformName)
+        : this(platformName, false)
+    {
+
+    }
+
+    public SupportedTestClassPlatformAttribute(string platformName, bool requiresAdminRights)
     {
         PlatformName = platformName;
+        RequiresAdminRights = requiresAdminRights;
     }
 
     public string PlatformName { get; }
+    public bool RequiresAdminRights { get; }
 
     public override TestMethodAttribute? GetTestMethodAttribute(TestMethodAttribute? testMethodAttribute)
     {
@@ -21,6 +29,6 @@ public sealed class SupportedTestClassPlatformAttribute : TestClassAttribute
             return ta;
         }
 
-        return new SupportedTestMethodPlatformAttribute(base.GetTestMethodAttribute(testMethodAttribute), PlatformName.ToString());
+        return new SupportedTestMethodPlatformAttribute(base.GetTestMethodAttribute(testMethodAttribute), PlatformName.ToString(), RequiresAdminRights);
     }
 }

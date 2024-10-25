@@ -14,6 +14,19 @@ internal class ProcessInfoWindows : ProcessInfo
 
     private static ProcessInfoWindows? Create<T>(int processId, T data, Func<int, SafeProcessHandle, T, ProcessInfoWindows> createInstance)
     {
+        if (NtDll.TryGetSystemPseudoProcess(processId, out var pseudoPeb))
+        {
+            var result = new ProcessInfoWindows(pseudoPeb.ProcessId, pseudoPeb.StartTime);
+            result.ExecutableFullPath = pseudoPeb.ExecutableFullPath;
+            result.ExecutableName = Path.GetFileName(pseudoPeb.ExecutableFullPath);
+            result.ApplicationName = pseudoPeb.ProcessName;
+            result.SessionId = pseudoPeb.SessionId;
+            result.Owner = pseudoPeb.Owner;
+            result.IsCritical = pseudoPeb.IsCritical;
+
+            return result;
+        }
+
         using (var handle = NativeMethods.OpenProcessLimited(processId))
         {
             if (!handle.IsInvalid)
@@ -26,6 +39,7 @@ internal class ProcessInfoWindows : ProcessInfo
                 result.ExecutableName = Path.GetFileName(imagePath);
                 result.ApplicationName = Path.GetFileName(imagePath);
                 result.SessionId = NativeMethods.GetProcessSessionId(processId);
+                result.IsCritical = NativeMethods.IsProcessCritical(handle);
 
                 return result;
             }
@@ -39,9 +53,10 @@ internal class ProcessInfoWindows : ProcessInfo
         var result = new ProcessInfoWindows(peb.ProcessId, peb.StartTime);
         result.ExecutableFullPath = peb.ExecutableFullPath;
         result.ExecutableName = Path.GetFileName(peb.ExecutableFullPath);
-        result.ApplicationName = Path.GetFileName(peb.ExecutableFullPath);
+        result.ApplicationName = peb.ProcessName;
         result.SessionId = peb.SessionId;
         result.Owner = peb.Owner;
+        result.IsCritical = peb.IsCritical;
 
         return result;
     }

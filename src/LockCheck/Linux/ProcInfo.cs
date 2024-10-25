@@ -23,6 +23,7 @@ internal class ProcInfo : IHasErrorState
     public string? Owner { get; private set; }
     public DateTime StartTime { get; private set; }
     public bool HasError { get; private set; }
+    public bool? IsCritical { get; private set; }
 
     public void SetError(Exception? ex = null, int errorCode = 0)
     {

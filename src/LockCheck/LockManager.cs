@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using LockCheck.Windows;
+using System.IO;
+
 #if NET
 using LockCheck.Linux;
 #endif
@@ -81,5 +83,22 @@ public static class LockManager
         }
 
         return processInfos;
+    }
+
+    public static IEnumerable<string> GetKnownCriticalProcesses()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return Windows.NativeMethods.GetKnownCriticalProcesses();
+        }
+#if NET
+        // Linux sources are only build when building for .NET, not for .NET Framework.
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            // TODO: Critical processes for Linux
+            return [];
+        }
+#endif
+        return [];
     }
 }

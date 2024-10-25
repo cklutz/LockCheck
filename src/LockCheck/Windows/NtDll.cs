@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Threading;
 
 using static LockCheck.Windows.NativeMethods;
@@ -13,11 +14,102 @@ namespace LockCheck.Windows;
 
 internal static class NtDll
 {
-    public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths,
-#if NET
-        [NotNullIfNotNull(nameof(directories))]
-#endif
-        ref List<string>? directories)
+    internal class PseudoPeb
+    {
+        public PseudoPeb(SYSTEM_PROCESS_INFORMATION pi, string? executable, string? systemAccount, string? processName = null)
+        {
+            ProcessId = (int)pi.UniqueProcessId;
+            ExecutableFullPath = executable;
+            ProcessName = pi.NamePtr != IntPtr.Zero ? Marshal.PtrToStringUni(pi.NamePtr) : processName;
+            Owner = systemAccount;
+            StartTime = DateTime.FromFileTime(pi.CreateTime);
+        }
+
+        public int ProcessId { get; private set; }
+        public string? ProcessName { get; private set; }
+        public string? ExecutableFullPath { get; private set; }
+        public string? Owner { get; private set; }
+        public DateTime StartTime { get; private set; }
+        public int SessionId => 0;
+        public bool? IsCritical => true;
+        public bool IsPseudoProcess => true;
+    }
+
+    // Pseudo processes never change during w/o rebooting. So we can cache them up front.
+    private static readonly Lazy<Dictionary<int, PseudoPeb>> s_systemPseudoProcesses = new(() =>
+    {
+        string? systemAccount = GetSystemAccountName();
+        var result = new Dictionary<int, PseudoPeb>();
+
+        EnumerateSystemProcesses(null, result, (res, _, pi) =>
+        {
+            if ((int)pi.UniqueProcessId == 0)
+            {
+                // "System Idle Process" always PID 0, does not have a name, even in SYSTEM_PROCESS_INFORMATION.NamePtr
+                res![0] = new PseudoPeb(pi, null, systemAccount, "System Idle Process");
+            }
+            else if (pi.NamePtr != IntPtr.Zero)
+            {
+                string? name = Marshal.PtrToStringUni(pi.NamePtr);
+                if (name != null && TryGetSystemPseudoProcessExecutable(name, out var executable))
+                {
+                    var pseudoPeb = new PseudoPeb(pi, executable, systemAccount);
+                    res![pseudoPeb.ProcessId] = pseudoPeb;
+                }
+            }
+            return 0;
+        });
+
+        return result;
+    }, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static string? GetSystemAccountName()
+    {
+        try
+        {
+            var sid = new SecurityIdentifier("S-1-5-18");
+            return sid.Translate(typeof(NTAccount)).Value;
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    internal static bool TryGetSystemPseudoProcess(int processId, [NotNullWhen(true)] out PseudoPeb? info)
+        => s_systemPseudoProcesses.Value.TryGetValue(processId, out info);
+
+    private static bool TryGetSystemPseudoProcessExecutable(string? processName, out string? executablePath)
+    {
+        executablePath = null;
+        if (processName != null)
+        {
+            switch (processName)
+            {
+                case "System Idle Process":
+                    // Process Explorer and others also return no executable name here,
+                    // even though this *is* a pseudo process. Technically, we should
+                    // never get here, because this process (PID 0) doesn't have a name
+                    // set in SYSTEM_PROCESS_INFORMATION.NamePtr, but we're playing it
+                    // safe.
+                    return true;
+                case "System":
+                case "Secure System":
+                case "Registry":
+                case "Memory Compression":
+                    // Regardless of whether the current process is WOW64, 64 bit or 32 bit, always return
+                    // the "actual" system directory here. This is compatible to what NativeMethods.GetProcessImagePath()
+                    // does.
+                    executablePath = Environment.ExpandEnvironmentVariables("%windir%\\System32\\ntoskrnl.exe");
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, [NotNullIfNotNull(nameof(directories))] ref List<string>? directories)
     {
         if (paths == null)
         {
@@ -234,6 +326,7 @@ internal static class NtDll
             ref readonly var pi = ref MemoryMarshal.AsRef<SYSTEM_PROCESS_INFORMATION>(current.Slice(processInformationOffset));
 
             int pid = pi.UniqueProcessId.ToInt32();
+
             if (processIds == null || processIds.Contains(pid))
             {
                 var entry = newEntry(data, count, pi);

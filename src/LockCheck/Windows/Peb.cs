@@ -1,9 +1,9 @@
 using Microsoft.Win32.SafeHandles;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using static LockCheck.Windows.NativeMethods;
 
 namespace LockCheck.Windows;
@@ -21,6 +21,7 @@ internal class Peb : IHasErrorState
 
     public int ProcessId { get; private set; }
     public int SessionId { get; private set; }
+    public string? ProcessName { get; private set; }
     public string? CommandLine { get; private set; }
     public string? CurrentDirectory { get; private set; }
     public string? WindowTitle { get; private set; }
@@ -29,6 +30,8 @@ internal class Peb : IHasErrorState
     public string? Owner { get; private set; }
     public DateTime StartTime { get; private set; }
     public bool HasError { get; private set; }
+    public bool? IsCritical { get; private set; }
+    public bool IsPseudoProcess { get; private set; }
 
     public void SetError(Exception? ex = null, int errorCode = 0)
     {
@@ -37,7 +40,7 @@ internal class Peb : IHasErrorState
             HasError = true;
 #if DEBUG
             if (Debugger.IsAttached)
-            { 
+            {
                 // Support manual inspection at a later point
                 _errorStack = Environment.StackTrace;
                 _errorCause = ex;
@@ -54,66 +57,92 @@ internal class Peb : IHasErrorState
         ProcessId = pi.UniqueProcessId.ToInt32();
         StartTime = DateTime.FromFileTime(pi.CreateTime);
 
-        using var process = OpenProcessRead(ProcessId);
-
-        if (!SUCCEEDED(!process.IsInvalid, this))
+        if (pi.NamePtr != IntPtr.Zero)
         {
-            return;
+            // NamePtr will contain information not otherwise easily obtainable.
+            // For example it will contain "System", "Secure System", "Registry", etc.
+            // for those Windows pseudo processes. For regular processes it contains
+            // the of the executable.
+            ProcessName = Marshal.PtrToStringUni(pi.NamePtr);
         }
 
-        // Need to check if either the current process, or the target process is 32bit or 64bit.
-        // Additionally, if it is a 32bit process on a 64bit OS (WOW64).
-
-        bool os64 = Environment.Is64BitOperatingSystem;
-        bool self64 = Environment.Is64BitProcess;
-        bool target64 = false;
-
-        if (os64)
+        if (NtDll.TryGetSystemPseudoProcess(ProcessId, out var pseudoPeb))
         {
-            if (!SUCCEEDED(IsWow64Process(process, out bool isWow64Target), this))
-            {
-                return;
-            }
+            // Common values for pseudo processes. All other fields don't really make sense for
+            // these and also would cause access denied errors when attempting to read memory
+            // or even "open" the "processes".
 
-            target64 = !isWow64Target;
-        }
-
-        var offsets = PebOffsets.Get(target64);
-
-        if (os64)
-        {
-            if (!target64)
-            {
-                // os: 64bit, self: any, target: 32bit
-                InitTarget32SelfAny(process, offsets, this);
-            }
-            else if (!self64)
-            {
-                // os: 64bit, self: 32bit, target: 64bit
-                InitTarget64Self32(process, offsets, this);
-            }
-            else
-            {
-                // os: 64bit, self: 64bit, target: 64bit
-                InitTargetAnySelfAny(process, offsets, this);
-            }
+            IsPseudoProcess = pseudoPeb.IsPseudoProcess;
+            IsCritical = pseudoPeb.IsCritical;
+            ExecutableFullPath = pseudoPeb.ExecutableFullPath;
+            Owner = pseudoPeb.Owner;
+            SessionId = pseudoPeb.SessionId;
         }
         else
         {
-            // os: 32bit, self: 32bit, target: 32bit
-            InitTargetAnySelfAny(process, offsets, this);
-        }
+            using var process = OpenProcessRead(ProcessId);
 
-        // Make sure that the current directory always ends with a backslash. AFAICT that is always the case,
-        // so this should really be a noop, but we need to make sure to ensure hassle free comparison later.
-        if (!string.IsNullOrEmpty(CurrentDirectory) && CurrentDirectory[CurrentDirectory.Length - 1] != '\\')
-        {
-            CurrentDirectory += "\\";
-        }
+            if (!SUCCEEDED(!process.IsInvalid, this))
+            {
+                // If if not a system pseudo process, this can still fail with access denied errors.
+                return;
+            }
 
-        // Owner is not really part of the native PEB, but since we have the process handle
-        // here anyway, and going to need this value later on, we get it here as well.
-        Owner = GetProcessOwner(process);
+            // Need to check if either the current process, or the target process is 32bit or 64bit.
+            // Additionally, if it is a 32bit process on a 64bit OS (WOW64).
+
+            bool os64 = Environment.Is64BitOperatingSystem;
+            bool self64 = Environment.Is64BitProcess;
+            bool target64 = false;
+
+            if (os64)
+            {
+                if (!SUCCEEDED(IsWow64Process(process, out bool isWow64Target), this))
+                {
+                    return;
+                }
+
+                target64 = !isWow64Target;
+            }
+
+            var offsets = PebOffsets.Get(target64);
+
+            if (os64)
+            {
+                if (!target64)
+                {
+                    // os: 64bit, self: any, target: 32bit
+                    InitTarget32SelfAny(process, offsets, this);
+                }
+                else if (!self64)
+                {
+                    // os: 64bit, self: 32bit, target: 64bit
+                    InitTarget64Self32(process, offsets, this);
+                }
+                else
+                {
+                    // os: 64bit, self: 64bit, target: 64bit
+                    InitTargetAnySelfAny(process, offsets, this);
+                }
+            }
+            else
+            {
+                // os: 32bit, self: 32bit, target: 32bit
+                InitTargetAnySelfAny(process, offsets, this);
+            }
+
+            // Make sure that the current directory always ends with a backslash. AFAICT that is always the case,
+            // so this should really be a noop, but we need to make sure to ensure hassle free comparison later.
+            if (!string.IsNullOrEmpty(CurrentDirectory) && CurrentDirectory[CurrentDirectory.Length - 1] != '\\')
+            {
+                CurrentDirectory += "\\";
+            }
+
+            // Owner is not really part of the native PEB, but since we have the process handle
+            // here anyway, and going to need this value later on, we get it here as well.
+            Owner = GetProcessOwner(process);
+            IsCritical = IsProcessCritical(process, this);
+        }
     }
 
     private static void InitTargetAnySelfAny(SafeProcessHandle handle, PebOffsets offsets, Peb peb)

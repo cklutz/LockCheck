@@ -264,6 +264,104 @@ internal static class TestHelper
         return clientFullPath;
     }
 
+    public static void CreateSampleProcess(bool as32Bit, Action<Process, string> action)
+    {
+        Process? process = null;
+        try
+        {
+            var si = new ProcessStartInfo
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            string nativePath;
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+                {
+                    // WOW64 process, file system redirection applies.
+                    si.FileName = Environment.ExpandEnvironmentVariables(as32Bit ? @"%windir%\system32\cmd.exe" : @"%windir%\sysnative\cmd.exe");
+                    nativePath = Environment.ExpandEnvironmentVariables(as32Bit ? @"%windir%\syswow64\cmd.exe" : @"%windir%\system32\cmd.exe");
+                }
+                else if (Environment.Is64BitOperatingSystem)
+                {
+                    si.FileName = Environment.ExpandEnvironmentVariables(as32Bit ? @"%windir%\syswow64\cmd.exe" : @"%windir%\system32\cmd.exe");
+                    nativePath = si.FileName;
+                }
+                else
+                {
+                    si.FileName = Environment.ExpandEnvironmentVariables(@"%windir%\system32\cmd.exe");
+                    nativePath = si.FileName;
+                }
+
+                si.Arguments = "/K pause";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                si.FileName = "/bin/sh";
+                si.Arguments = $"-c \"sleep 100000; exit\"";
+                nativePath = si.FileName;
+            }
+            else
+            {
+                throw new PlatformNotSupportedException();
+            }
+
+            Console.WriteLine($"Starting: {si.FileName} {si.Arguments}");
+
+            process = new Process();
+            process.StartInfo = si;
+            process.OutputDataReceived += (p, e) =>
+            {
+                if (e.Data != null)
+                {
+                    Console.WriteLine($"{((Process)p).Id:00000}: {e.Data}");
+                }
+            };
+            process.ErrorDataReceived += (p, e) =>
+            {
+                if (e.Data != null)
+                {
+                    Console.WriteLine($"{((Process)p).Id:00000}: {e.Data}");
+                }
+            };
+
+            if (!process.Start())
+            {
+                throw new InvalidOperationException($"Failed to start: {si.FileName} {si.Arguments}");
+            }
+
+            s_selfJob.Value.AttachProcess(process);
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            action(process, nativePath);
+        }
+        finally
+        {
+            try
+            {
+                Console.WriteLine($"Killing process with process ID {process?.Id} ...");
+                process?.Kill();
+                process?.WaitForExit();
+                Console.WriteLine("Process killed.");
+            }
+            catch (InvalidOperationException)
+            {
+                // Process gone.
+            }
+            finally
+            {
+                process?.Dispose();
+            }
+        }
+    }
+
     public static void CreateShellWithCurrentDirectory(Action<(string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath)> action)
     {
         string tempDirectoryName = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test");
