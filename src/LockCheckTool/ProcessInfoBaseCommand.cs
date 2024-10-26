@@ -39,33 +39,4 @@ internal abstract class ProcessInfoBaseCommand : LCCommand
 
         return infos.ToList();
     }
-
-    protected static void OutputPlain(IOutput output, IEnumerable<ProcessInfo> processInfos)
-    {
-        bool first = true;
-        foreach (var p in processInfos)
-        {
-            if (!first)
-            {
-                output.WriteLine("----------------------------------------------------");
-            }
-
-            output.WriteLine($"Process ID        : {p.ProcessId}");
-            output.WriteLine($"Application Name  : {p.ApplicationName}");
-            output.WriteLine($"Path              : {p.ExecutableFullPath}");
-            output.WriteLine($"Process Start Time: {p.StartTime:F}");
-            output.WriteLine($"Owner             : {p.Owner}");
-            output.WriteLine($"SessionId         : {p.SessionId}");
-            output.WriteLine($"IsCritical        : {p.IsCritical}");
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                output.WriteLine($"LockAccess        : {p.LockAccess}");
-                output.WriteLine($"LockMode          : {p.LockMode}");
-                output.WriteLine($"LockType          : {p.LockType}");
-            }
-
-            first = false;
-        }
-    }
 }

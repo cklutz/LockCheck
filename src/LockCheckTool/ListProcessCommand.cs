@@ -38,32 +38,11 @@ internal class ListProcessCommand : LCCommand
             string? query = null;
 #endif
 
-            IOutput? actualOutput = null;
-            try
-            {
-                actualOutput = GetActualOutput(context, outputPath);
-
-                if (outputFormat == OutputFormats.None)
-                {
-                    OutputPlain(actualOutput, processes);
-                }
-                else
-                {
-                    HandleCommonOutputFormats(actualOutput, outputFormat, query, processes);
-                }
-            }
-            finally
-            {
-                actualOutput?.Dispose();
-            }
+            using var actualOutput = GetActualOutput(context, outputPath);
+            HandleCommonOutputFormats(actualOutput, outputFormat, query, processes);
         }
 
         return 0;
-    }
-
-
-    private void OutputPlain(IOutput output, IEnumerable<IProcessDetails> processes)
-    {
     }
 }
 

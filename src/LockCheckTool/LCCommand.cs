@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -106,11 +107,10 @@ internal abstract class LCCommand : Command
                 OutputDelimited(output, '\t', query, data);
                 break;
             default:
-                // TODO: Dump objects using reflection as "fall back"
-                throw new ArgumentOutOfRangeException(nameof(outputFormat), outputFormat, null);
+                OutputPlain(output, data);
+                break;
         }
     }
-
 
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -133,18 +133,6 @@ internal abstract class LCCommand : Command
                         };
                     }
                 })
-
-
-        //JsonExtensions.AddPolymorphismOptions(
-        //    typeof(IProcessDetails),
-        //    new()
-        //    {
-        //        DerivedTypes =
-        //        {
-        //            new(typeof(IWin32ProcessDetails), "windows"),
-        //            new(typeof(ILinuxProcessDetails), "linux")
-        //        }
-        //    }))
     };
 
     protected static JsonElement GetAsJsonElement<T>(string? query, IEnumerable<T> data)
@@ -178,15 +166,48 @@ internal abstract class LCCommand : Command
         return json;
     }
 
-    protected static void OutputDelimited<T>(IOutput output, char delimiter, string? query, IEnumerable<T> data)
+    protected virtual void OutputDelimited<T>(IOutput output, char delimiter, string? query, IEnumerable<T> data)
     {
         var element = GetAsJsonElement(query, data);
         FormatSupport.FormatAsRowsWithDelimiter(element, delimiter, output, true);
     }
 
-    protected static void OutputJson<T>(IOutput output, OutputFormats outputFormat, string? query, IEnumerable<T> data)
+    protected virtual void OutputJson<T>(IOutput output, OutputFormats outputFormat, string? query, IEnumerable<T> data)
     {
         string json = GetJson(query, data, outputFormat == OutputFormats.PrettyJson);
         output.WriteLine(json);
+    }
+
+    protected virtual void OutputPlain<T>(IOutput output, IEnumerable<T> data)
+    {
+        if (data == null || !data.Any())
+        {
+            output.WriteLine("No data.");
+            return;
+        }
+
+        var properties = typeof(T).GetProperties();
+        if (properties.Length == 0)
+        {
+            throw new ArgumentException($"Type {typeof(T)} has no public properties", nameof(data));
+        }
+
+        int maxLen = properties.Max(p => p.Name.Length);
+        bool first = true;
+
+        foreach (var item in data)
+        {
+            if (!first)
+            {
+                output.WriteLine("----------------------------------------------------------");
+            }
+
+            foreach (var property in properties)
+            {
+                output.WriteLine($"{property.Name.PadRight(maxLen)}: {property.GetValue(item)}");
+            }
+
+            first = false;
+        }
     }
 }

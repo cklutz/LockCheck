@@ -2,7 +2,6 @@ using System;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using LockCheck;
 

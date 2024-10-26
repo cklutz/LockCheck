@@ -39,24 +39,8 @@ internal class ListLockingProcessCommand : ProcessInfoBaseCommand
             string? query = null;
 #endif
 
-            IOutput? actualOutput = null;
-            try
-            {
-                actualOutput = GetActualOutput(context, outputPath);
-
-                if (outputFormat == OutputFormats.None)
-                {
-                    OutputPlain(actualOutput, infos);
-                }
-                else
-                {
-                    HandleCommonOutputFormats(actualOutput, outputFormat, query, infos);
-                }
-            }
-            finally
-            {
-                actualOutput?.Dispose();
-            }
+            using var actualOutput = GetActualOutput(context, outputPath);
+            HandleCommonOutputFormats(actualOutput, outputFormat, query, infos);
         }
 
         return 0;
