@@ -9,7 +9,7 @@ using static LockCheck.Windows.NativeMethods;
 namespace LockCheck.Windows;
 
 [DebuggerDisplay("{HasError} {ProcessId} {ExecutableFullPath}")]
-internal class Peb : IHasErrorState
+internal class Peb : IWin32ProcessDetails, IHasErrorState
 {
 #if DEBUG
 #pragma warning disable IDE0052

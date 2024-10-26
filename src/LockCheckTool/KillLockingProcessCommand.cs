@@ -8,7 +8,7 @@ using LockCheck;
 
 namespace LockCheckTool;
 
-internal class KillLockingProcessesCommand : ProcessInfoBaseCommand
+internal class KillLockingProcessCommand : ProcessInfoBaseCommand
 {
     public Option<bool> Kill { get; } = new("--kill", "Actually kill processes. By default this command only shows which processes would be killed");
     public Option<bool> AllUsers { get; } = new("--all-users", "Attempt to kill all processes. By default only processes belonging to the current user are considered");
@@ -16,8 +16,8 @@ internal class KillLockingProcessesCommand : ProcessInfoBaseCommand
     public Option<bool> IncludeCritical { get; } = new("--include-critical", "Allow killing critical system processes, if they lock a path." +
         " By default heuristics, like those of Task Manager, prevent critical processes from being killed, even if they lock a path");
 
-    public KillLockingProcessesCommand()
-        : base("kill-processes", "Kill processes that lock a specified path")
+    public KillLockingProcessCommand()
+        : base("kill", "Kill processes that lock a specified path")
     {
         AddOption(Kill);
         AddOption(AllUsers);

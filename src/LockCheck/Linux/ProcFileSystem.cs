@@ -14,6 +14,16 @@ internal static class ProcFileSystem
 {
     private static volatile int s_procMatchesPidNamespace;
 
+    internal static HashSet<ILinuxProcessDetails> GetAllProcesses()
+    {
+        var result = new HashSet<ILinuxProcessDetails>();
+        foreach (int processId in EnumerateProcessIds())
+        {
+            result.Add(new ProcInfo(processId));
+        }
+        return result;
+    }
+
     internal static Dictionary<(int, DateTime), ProcessInfo> GetProcessesByWorkingDirectory(List<string> directories)
     {
         var result = new Dictionary<(int, DateTime), ProcessInfo>();
@@ -194,6 +204,27 @@ internal static class ProcFileSystem
     private static string GetProcDir(ProcPid procPid) => procPid == ProcPid.Self ? "/proc/self" : string.Create(null, stackalloc char[128], $"/proc/{(int)procPid}");
 
     internal static bool Exists(int processId) => TryGetProcPid(processId, out var procPid) && Directory.Exists(GetProcDir(procPid));
+
+    internal static bool? IsKernelThread(int processId)
+    {
+        if (TryGetProcPid(processId, out var procPid))
+        {
+            if (procPid == ProcPid.Self)
+            {
+                // We are for sure not a kernel thread.
+                return false;
+            }
+
+            var content = File.ReadAllText(GetProcStat(procPid)).AsSpan().Trim();
+            if (int.TryParse(GetField(content, ' ', 8).Trim(), CultureInfo.InvariantCulture, out int flags))
+            {
+                const int PF_KTHREAD = 0x0020_0000;
+                return (flags & PF_KTHREAD) == PF_KTHREAD;
+            }
+        }
+
+        return null;
+    }
 
     internal static string? GetProcessOwner(int processId)
     {

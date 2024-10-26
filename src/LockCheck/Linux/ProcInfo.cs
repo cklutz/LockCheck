@@ -5,7 +5,7 @@ using System.IO;
 namespace LockCheck.Linux;
 
 [DebuggerDisplay("{HasError} {ProcessId} {ExecutableFullPath}")]
-internal class ProcInfo : IHasErrorState
+internal class ProcInfo : ILinuxProcessDetails, IHasErrorState
 {
 #if DEBUG
 #pragma warning disable IDE0052
@@ -17,6 +17,7 @@ internal class ProcInfo : IHasErrorState
 
     public int ProcessId { get; private set; }
     public int SessionId { get; private set; }
+    public string? ProcessName { get; private set; }
     public string? CommandLine { get; private set; }
     public string? CurrentDirectory { get; private set; }
     public string? ExecutableFullPath { get; private set; }
@@ -24,6 +25,7 @@ internal class ProcInfo : IHasErrorState
     public DateTime StartTime { get; private set; }
     public bool HasError { get; private set; }
     public bool? IsCritical { get; private set; }
+    public bool? IsKernelThread { get; private set; }
 
     public void SetError(Exception? ex = null, int errorCode = 0)
     {
@@ -57,9 +59,12 @@ internal class ProcInfo : IHasErrorState
         CommandLine = GetCommandLine(processId, this);
         CurrentDirectory = GetCurrentDirectory(processId, this);
         ExecutableFullPath = GetExecutablePath(processId, this);
+        ProcessName = Path.GetFileName(ExecutableFullPath);
         Owner = GetProcessOwner(processId);
         StartTime = GetStartTime(processId, this);
         SessionId = GetSessionId(processId, this);
+        IsKernelThread = GetIsKernelThread(processId, this);
+        IsCritical = IsKernelThread.GetValueOrDefault() || NativeMethods.IsProcessCritical(ExecutableFullPath);
 
         // Make sure that the current directory always ends with a slash. AFAICT that is never the case,
         // using DirectoryInfo and procfs. We do this for symmetry with the Windows code and also because
@@ -86,6 +91,24 @@ internal class ProcInfo : IHasErrorState
         }
 
         return null;
+    }
+
+    private static bool? GetIsKernelThread(int pid, ProcInfo he)
+    {
+        try
+        {
+            return ProcFileSystem.IsKernelThread(pid);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            he.SetError();
+            return null;
+        }
+        catch (IOException)
+        {
+            he.SetError();
+            return null;
+        }
     }
 
     private static string? GetCommandLine(int pid, ProcInfo he)

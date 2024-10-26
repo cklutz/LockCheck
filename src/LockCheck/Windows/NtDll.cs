@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
@@ -107,6 +108,17 @@ internal static class NtDll
         }
 
         return false;
+    }
+
+    public static HashSet<IWin32ProcessDetails> GetAllProcesses()
+    {
+        return EnumerateSystemProcesses(null, (object?)null,
+            static (_, idx, pi) =>
+            {
+                return (IWin32ProcessDetails)new Peb(pi);
+            })
+            .Select(v => v.Value)
+            .ToHashSet();
     }
 
     public static HashSet<ProcessInfo> GetLockingProcessInfos(string[] paths, [NotNullIfNotNull(nameof(directories))] ref List<string>? directories)

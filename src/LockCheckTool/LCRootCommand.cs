@@ -9,7 +9,7 @@ internal class LCRootCommand : RootCommand
     public LCRootCommand()
     {
         AddGlobalOption(Verbose);
-        AddCommand(new ListLockingProcessesCommand());
-        AddCommand(new KillLockingProcessesCommand());
+        AddCommand(new LockingProcessCommand());
+        AddCommand(new ProcessCommand());
     }
 }

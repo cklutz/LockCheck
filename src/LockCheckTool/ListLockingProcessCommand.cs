@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
@@ -5,7 +7,7 @@ using System.Linq;
 
 namespace LockCheckTool;
 
-internal class ListLockingProcessesCommand : ProcessInfoBaseCommand
+internal class ListLockingProcessCommand : ProcessInfoBaseCommand
 {
     public Option<string> OutputPath { get; } = new Option<string>("--output", "Write output into specified file").LegalFilePathsOnly();
     public Option<OutputFormats> OutputFormat { get; } = new(["--output-format", "-o"], "Output format");
@@ -13,8 +15,8 @@ internal class ListLockingProcessesCommand : ProcessInfoBaseCommand
     public Option<string> Query { get; } = new("--query", "JMESPath query string. See http://jmespath.org/ for more information and examples");
 #endif
 
-    public ListLockingProcessesCommand()
-        : base("list-processes", "List processes that lock a specified path")
+    public ListLockingProcessCommand()
+        : base("list", "List processes that lock a specified path")
     {
         AddOption(OutputPath);
         AddOption(OutputFormat);
@@ -40,36 +42,15 @@ internal class ListLockingProcessesCommand : ProcessInfoBaseCommand
             IOutput? actualOutput = null;
             try
             {
-                if (outputPath != null)
-                {
-                    string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
-                    if (directory != null && !Directory.Exists(directory))
-                    {
-                        Directory.CreateDirectory(directory);
-                    }
+                actualOutput = GetActualOutput(context, outputPath);
 
-                    actualOutput = new FileOutput(File.OpenWrite(outputPath));
+                if (outputFormat == OutputFormats.None)
+                {
+                    OutputPlain(actualOutput, infos);
                 }
                 else
                 {
-                    actualOutput = new ConsoleOutput(context.Console.Out);
-                }
-
-                switch (outputFormat)
-                {
-                    case OutputFormats.None:
-                        OutputPlain(actualOutput, infos);
-                        break;
-                    case OutputFormats.Json:
-                    case OutputFormats.PrettyJson:
-                        OutputJson(actualOutput, outputFormat, query, infos);
-                        break;
-                    case OutputFormats.Csv:
-                        OutputDelimited(actualOutput, ',', query, infos);
-                        break;
-                    case OutputFormats.Tsv:
-                        OutputDelimited(actualOutput, '\t', query, infos);
-                        break;
+                    HandleCommonOutputFormats(actualOutput, outputFormat, query, infos);
                 }
             }
             finally

@@ -12,7 +12,8 @@ internal class ProcessInfoLinux : ProcessInfo
             ExecutableFullPath = pi.ExecutableFullPath,
             ExecutableName = pi.ExecutableFullPath != null ? Path.GetFileName(pi.ExecutableFullPath) : null,
             SessionId = pi.SessionId,
-            Owner = pi.Owner
+            Owner = pi.Owner,
+            IsCritical = pi.IsCritical
         };
 
         result.ApplicationName = result.ExecutableName;
