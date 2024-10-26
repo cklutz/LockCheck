@@ -5,6 +5,8 @@ using System.CommandLine.Invocation;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+using LockCheck;
 #if FEATURE_JMSE_QUERY
 using JsonCons.JmesPath;
 #endif
@@ -110,7 +112,40 @@ internal abstract class LCCommand : Command
     }
 
 
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+            .WithAddedModifier(
+                // Adding this here, not in LockCheck.dll, because we don't want to introduce a dependency
+                // to System.Text.Json there, especially not for net481.
+                typeInfo =>
+                {
+                    if (typeInfo.Type == typeof(IProcessDetails))
+                    {
+                        typeInfo.PolymorphismOptions = new()
+                        {
+                            UnknownDerivedTypeHandling = System.Text.Json.Serialization.JsonUnknownDerivedTypeHandling.FallBackToNearestAncestor,
+                            DerivedTypes =
+                            {
+                                new(typeof(IWin32ProcessDetails), "windows"),
+                                new(typeof(ILinuxProcessDetails), "linux")
+                            }
+                        };
+                    }
+                })
+
+
+        //JsonExtensions.AddPolymorphismOptions(
+        //    typeof(IProcessDetails),
+        //    new()
+        //    {
+        //        DerivedTypes =
+        //        {
+        //            new(typeof(IWin32ProcessDetails), "windows"),
+        //            new(typeof(ILinuxProcessDetails), "linux")
+        //        }
+        //    }))
+    };
 
     protected static JsonElement GetAsJsonElement<T>(string? query, IEnumerable<T> data)
     {
