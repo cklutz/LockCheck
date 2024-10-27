@@ -1,6 +1,7 @@
 using Microsoft.Win32.SafeHandles;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -20,7 +21,9 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
 #endif
 
     public int ProcessId { get; private set; }
+    public DateTime StartTime { get; private set; }
     public int SessionId { get; private set; }
+    public int? ParentProcessId { get; private set; }
     public string? ProcessName { get; private set; }
     public string? CommandLine { get; private set; }
     public string? CurrentDirectory { get; private set; }
@@ -28,7 +31,6 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
     public string? ExecutableFullPath { get; private set; }
     public string? DesktopInfo { get; private set; }
     public string? Owner { get; private set; }
-    public DateTime StartTime { get; private set; }
     public bool HasError { get; private set; }
     public bool? IsCritical { get; private set; }
     public bool IsPseudoProcess { get; private set; }
@@ -56,6 +58,7 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
         // Also, ProcessId/StartTime serve as identity. So it is "useful" to have them.
         ProcessId = pi.UniqueProcessId.ToInt32();
         StartTime = DateTime.FromFileTime(pi.CreateTime);
+        ParentProcessId = pi.InheritedFromUniqueProcessId.ToInt32();
 
         if (pi.NamePtr != IntPtr.Zero)
         {
@@ -66,17 +69,32 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
             ProcessName = Marshal.PtrToStringUni(pi.NamePtr);
         }
 
+        Initialize();
+    }
+
+    internal Peb(int processId, DateTime startTime)
+    {
+        ProcessId = processId;
+        StartTime = startTime;
+
+        Initialize();
+    }
+
+    private void Initialize()
+    {
         if (NtDll.TryGetSystemPseudoProcess(ProcessId, out var pseudoPeb))
         {
             // Common values for pseudo processes. All other fields don't really make sense for
             // these and also would cause access denied errors when attempting to read memory
             // or even "open" the "processes".
 
+            ProcessName ??= pseudoPeb.ProcessName;
             IsPseudoProcess = pseudoPeb.IsPseudoProcess;
             IsCritical = pseudoPeb.IsCritical;
             ExecutableFullPath = pseudoPeb.ExecutableFullPath;
             Owner = pseudoPeb.Owner;
             SessionId = pseudoPeb.SessionId;
+            ParentProcessId = pseudoPeb.ParentProcessId;
         }
         else
         {
@@ -142,6 +160,7 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
             // here anyway, and going to need this value later on, we get it here as well.
             Owner = GetProcessOwner(process);
             IsCritical = IsProcessCritical(process, this);
+            ProcessName ??= Path.GetFileName(ExecutableFullPath);
         }
     }
 
@@ -150,6 +169,8 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
         var pbi = new PROCESS_BASIC_INFORMATION();
         if (SUCCEEDED(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero), peb))
         {
+            peb.ParentProcessId ??= pbi.InheritedFromUniqueProcessId.ToInt32();
+
             var pp = new IntPtr();
             if (SUCCEEDED(ReadProcessMemory(handle, new IntPtr(pbi.PebBaseAddress.ToInt64() + offsets.ProcessParametersOffset), ref pp, new IntPtr(Marshal.SizeOf(pp)), IntPtr.Zero), peb))
             {
@@ -170,6 +191,8 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
         var pbi = new PROCESS_BASIC_INFORMATION_WOW64();
         if (SUCCEEDED(NtWow64QueryInformationProcess64(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero), peb))
         {
+            peb.ParentProcessId ??= (int)pbi.InheritedFromUniqueProcessId;
+
             long pp = 0;
             if (SUCCEEDED(NtWow64ReadVirtualMemory64(handle, pbi.PebBaseAddress + offsets.ProcessParametersOffset, ref pp, Marshal.SizeOf(pp), IntPtr.Zero), peb))
             {
@@ -189,6 +212,8 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
         var pbi = new PROCESS_BASIC_INFORMATION();
         if (SUCCEEDED(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessBasicInformation, ref pbi, Marshal.SizeOf(pbi), IntPtr.Zero), peb))
         {
+            peb.ParentProcessId ??= pbi.InheritedFromUniqueProcessId.ToInt32();
+
             // A 32bit process on a 64bit OS has a separate PEB structure.
             var peb32 = new IntPtr();
             if (SUCCEEDED(NtQueryInformationProcessWow64(handle, PROCESS_INFORMATION_CLASS.ProcessWow64Information, ref peb32, IntPtr.Size, IntPtr.Zero), peb))

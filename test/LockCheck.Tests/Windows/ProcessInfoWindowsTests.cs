@@ -66,7 +66,7 @@ public class ProcessInfoWindowsTests
         };
         var peb = new Peb(pi);
 
-        var result = ProcessInfoWindows.Create(peb);
+        var result = new ProcessInfoWindows(peb);
 
         Assert.IsNotNull(result);
         Assert.AreEqual(peb.ProcessId, result.ProcessId);

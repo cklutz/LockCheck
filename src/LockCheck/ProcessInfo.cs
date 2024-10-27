@@ -29,6 +29,11 @@ public abstract class ProcessInfo
     public DateTime StartTime { get; }
 
     /// <summary>
+    /// The process ID of this process' parent.
+    /// </summary>
+    public int? ParentProcessId { get; protected set; }
+
+    /// <summary>
     /// The executable name of the process holding a lock.
     /// </summary>
     public string? ExecutableName { get; protected set; }

@@ -172,12 +172,13 @@ And this is it, with that information included:
 ## Standalone tool
 
 A standalone tool (`LockCheckTool`) is included and is available for both .NET 8+, and .NET Framework (4.8.1+).
+
 You can test the functionality as follows:
 
 * Open/create a file "C:\temp\foo.xlsx" in Microsoft Excel - you can use any other application that actually locks a file, of course.
 * Run the following command: 
 
-       LockCheckTool.exe c:\temp\foo.xlsx
+       lockchecktool.exe locking-process list c:\temp\foo.xlsx
   
 * The output should something like this
 
@@ -187,3 +188,5 @@ You can test the functionality as follows:
         Application Status: Running
         Application Name  : Microsoft Excel
         Session ID        : 1
+
+Use `lockchecktool.exe --help` for more information on usage.

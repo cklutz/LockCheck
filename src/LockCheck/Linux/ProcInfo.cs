@@ -16,13 +16,14 @@ internal class ProcInfo : ILinuxProcessDetails, IHasErrorState
 #endif
 
     public int ProcessId { get; private set; }
+    public DateTime StartTime { get; private set; }
+    public int? ParentProcessId { get; private set; }
     public int SessionId { get; private set; }
     public string? ProcessName { get; private set; }
     public string? CommandLine { get; private set; }
     public string? CurrentDirectory { get; private set; }
     public string? ExecutableFullPath { get; private set; }
     public string? Owner { get; private set; }
-    public DateTime StartTime { get; private set; }
     public bool HasError { get; private set; }
     public bool? IsCritical { get; private set; }
     public bool? IsKernelThread { get; private set; }
@@ -62,8 +63,15 @@ internal class ProcInfo : ILinuxProcessDetails, IHasErrorState
         ProcessName = Path.GetFileName(ExecutableFullPath);
         Owner = GetProcessOwner(processId);
         StartTime = GetStartTime(processId, this);
-        SessionId = GetSessionId(processId, this);
-        IsKernelThread = GetIsKernelThread(processId, this);
+
+        var stat = GetStat(processId, this);
+        ParentProcessId = stat.ParentProcessId;
+        SessionId = stat.SessionId;
+        IsKernelThread = stat.IsKernelThread;
+
+        //ParentProcessId = GetParentProcessId(processId, this);
+        //SessionId = GetSessionId(processId, this);
+        //IsKernelThread = GetIsKernelThread(processId, this);
         IsCritical = IsKernelThread.GetValueOrDefault() || NativeMethods.IsProcessCritical(ExecutableFullPath);
 
         // Make sure that the current directory always ends with a slash. AFAICT that is never the case,
@@ -91,24 +99,6 @@ internal class ProcInfo : ILinuxProcessDetails, IHasErrorState
         }
 
         return null;
-    }
-
-    private static bool? GetIsKernelThread(int pid, ProcInfo he)
-    {
-        try
-        {
-            return ProcFileSystem.IsKernelThread(pid);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            he.SetError();
-            return null;
-        }
-        catch (IOException)
-        {
-            he.SetError();
-            return null;
-        }
     }
 
     private static string? GetCommandLine(int pid, ProcInfo he)
@@ -192,30 +182,91 @@ internal class ProcInfo : ILinuxProcessDetails, IHasErrorState
         }
     }
 
-    private static int GetSessionId(int pid, ProcInfo he)
+    private static ProcFileSystem.Stat GetStat(int pid, ProcInfo he)
     {
         try
         {
-            int sessionId = ProcFileSystem.GetProcessSessionId(pid);
-
-            if (sessionId == -1)
-            {
-                he.SetError();
-            }
-
-            return sessionId;
+            return ProcFileSystem.GetStat(pid);
         }
-        catch (UnauthorizedAccessException ex)
+        catch (UnauthorizedAccessException)
         {
-            he.SetError(ex);
-            return -1;
+            he.SetError();
+            return default;
         }
-        catch (IOException ex)
+        catch (IOException)
         {
-            he.SetError(ex);
-            return -1;
+            he.SetError();
+            return default;
         }
     }
+
+    //private static bool? GetIsKernelThread(int pid, ProcInfo he)
+    //{
+    //    try
+    //    {
+    //        return ProcFileSystem.IsKernelThread(pid);
+    //    }
+    //    catch (UnauthorizedAccessException)
+    //    {
+    //        he.SetError();
+    //        return null;
+    //    }
+    //    catch (IOException)
+    //    {
+    //        he.SetError();
+    //        return null;
+    //    }
+    //}
+
+    //private static int GetSessionId(int pid, ProcInfo he)
+    //{
+    //    try
+    //    {
+    //        int sessionId = ProcFileSystem.GetProcessSessionId(pid);
+
+    //        if (sessionId == -1)
+    //        {
+    //            he.SetError();
+    //        }
+
+    //        return sessionId;
+    //    }
+    //    catch (UnauthorizedAccessException ex)
+    //    {
+    //        he.SetError(ex);
+    //        return -1;
+    //    }
+    //    catch (IOException ex)
+    //    {
+    //        he.SetError(ex);
+    //        return -1;
+    //    }
+    //}
+
+    //private static int? GetParentProcessId(int pid, ProcInfo he)
+    //{
+    //    try
+    //    {
+    //        var startTime = ProcFileSystem.GetParentProcessId(pid);
+
+    //        if (startTime == default)
+    //        {
+    //            he.SetError();
+    //        }
+
+    //        return startTime;
+    //    }
+    //    catch (UnauthorizedAccessException ex)
+    //    {
+    //        he.SetError(ex);
+    //        return default;
+    //    }
+    //    catch (IOException ex)
+    //    {
+    //        he.SetError(ex);
+    //        return default;
+    //    }
+    //}
 
     private static unsafe DateTime GetStartTime(int pid, ProcInfo he)
     {

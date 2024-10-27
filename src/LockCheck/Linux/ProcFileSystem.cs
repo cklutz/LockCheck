@@ -6,7 +6,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
+using System.Threading;
 
 namespace LockCheck.Linux;
 
@@ -205,26 +207,158 @@ internal static class ProcFileSystem
 
     internal static bool Exists(int processId) => TryGetProcPid(processId, out var procPid) && Directory.Exists(GetProcDir(procPid));
 
-    internal static bool? IsKernelThread(int processId)
+    // TODO: As of now, we are reading the stat file for a process 3 times (sid, ppid and kthread).
+    // We should really read the file only once. This would mean that the IsKernelThread(), GetParentProcessId()
+    // and GetSessionId() methods need to be merged into a single one.
+
+    internal struct Stat
     {
+        public int? ParentProcessId { get; set; }
+        public int SessionId { get; set; }
+        public bool? IsKernelThread { get; set; }
+    }
+
+    private enum StatFields
+    {
+        Ppid = 3,
+        Sid = 5,
+        Flags = 8,
+
+        Last = Flags
+    }
+
+    internal static Stat GetStat(int processId)
+    {
+        var result = new Stat();
+
         if (TryGetProcPid(processId, out var procPid))
         {
-            if (procPid == ProcPid.Self)
+            var stat = File.ReadAllText(GetProcStat(procPid)).AsSpan().Trim();
+
+#if NET9_0_OR_GREATER
+            int index = 0;
+            foreach (var range in stat.Split(' '))
             {
-                // We are for sure not a kernel thread.
-                return false;
+                switch ((StatFields)index)
+                {
+                    case StatFields.Ppid:
+                        if (int.TryParse(stat[range], CultureInfo.InvariantCulture, out int ppid))
+                        {
+                            result.ParentProcessId = ppid;
+                        }
+                        break;
+                    case StatFields.Sid:
+                        if (int.TryParse(stat[range], CultureInfo.InvariantCulture, out int sid))
+                        {
+                            result.SessionId = sid;
+                        }
+                        break;
+                    case StatFields.Flags:
+                        if (int.TryParse(stat[range], CultureInfo.InvariantCulture, out int flags))
+                        {
+                            const int PF_KTHREAD = 0x0020_0000;
+                            result.IsKernelThread = (flags & PF_KTHREAD) == PF_KTHREAD;
+                        }
+                        break;
+                }
+
+                index++;
+                if (index > 8)
+                {
+                    break;
+                }
             }
 
-            var content = File.ReadAllText(GetProcStat(procPid)).AsSpan().Trim();
-            if (int.TryParse(GetField(content, ' ', 8).Trim(), CultureInfo.InvariantCulture, out int flags))
+            if (index < (int)StatFields.Last)
+            {
+                throw new IOException($"Expected at least {(int)StatFields.Last + 1} fields in /proc/{processId}/stat.");
+            }
+#else
+            int fieldCount = stat.Count(' ') + 1;
+            if (fieldCount < (int)StatFields.Last + 1)
+            {
+                throw new IOException($"Expected at least {(int)StatFields.Last + 1} fields in /proc/{processId}/stat.");
+            }
+
+            // Need only as much ranges as we have fields. Rest of stat can be squished into a single, trailing range
+            // which we'll never read.
+            int rangeCount = (int)StatFields.Last + 2;
+            Span<Range> ranges = rangeCount < 128 ? stackalloc Range[rangeCount] : new Range[rangeCount];
+            int num = MemoryExtensions.Split(stat, ranges, ' ');
+
+            // Shouldn't trigger, because of pre-checks done above.
+            Debug.Assert(num == rangeCount);
+
+            if (int.TryParse(stat[ranges[(int)StatFields.Ppid]], CultureInfo.InvariantCulture, out int ppid))
+            {
+                result.ParentProcessId = ppid;
+            }
+
+            if (int.TryParse(stat[ranges[(int)StatFields.Sid]], CultureInfo.InvariantCulture, out int sid))
+            {
+                result.SessionId = sid;
+            }
+
+            if (int.TryParse(stat[ranges[(int)StatFields.Flags]], CultureInfo.InvariantCulture, out int flags))
             {
                 const int PF_KTHREAD = 0x0020_0000;
-                return (flags & PF_KTHREAD) == PF_KTHREAD;
+                result.IsKernelThread = (flags & PF_KTHREAD) == PF_KTHREAD;
             }
+#endif
         }
 
-        return null;
+        return result;
     }
+
+    //internal static bool? IsKernelThread(int processId)
+    //{
+    //    if (TryGetProcPid(processId, out var procPid))
+    //    {
+    //        if (procPid == ProcPid.Self)
+    //        {
+    //            // We are for sure not a kernel thread.
+    //            return false;
+    //        }
+
+    //        var content = File.ReadAllText(GetProcStat(procPid)).AsSpan().Trim();
+    //        if (int.TryParse(GetField(content, ' ', 8).Trim(), CultureInfo.InvariantCulture, out int flags))
+    //        {
+    //            const int PF_KTHREAD = 0x0020_0000;
+    //            return (flags & PF_KTHREAD) == PF_KTHREAD;
+    //        }
+    //    }
+
+    //    return null;
+    //}
+
+    //internal static int? GetParentProcessId(int processId)
+    //{
+    //    if (TryGetProcPid(processId, out var procPid))
+    //    {
+    //        var content = File.ReadAllText(GetProcStat(procPid)).AsSpan().Trim();
+    //        if (int.TryParse(GetField(content, ' ', 3).Trim(), CultureInfo.InvariantCulture, out int parentProcessId))
+    //        {
+    //            return parentProcessId;
+    //        }
+    //    }
+
+    //    return null;
+    //}
+
+    //internal static int GetProcessSessionId(int processId)
+    //{
+    //    int sessionId = -1;
+    //    if (TryGetProcPid(processId, out ProcPid procPid))
+    //    {
+    //        var content = File.ReadAllText(GetProcStat(procPid)).AsSpan().Trim();
+    //        if (int.TryParse(GetField(content, ' ', 5).Trim(), CultureInfo.InvariantCulture, out int sid))
+    //        {
+    //            sessionId = sid;
+    //        }
+    //    }
+
+    //    return sessionId;
+    //}
 
     internal static string? GetProcessOwner(int processId)
     {
@@ -264,21 +398,6 @@ internal static class ProcFileSystem
         }
 
         return default;
-    }
-
-    internal static int GetProcessSessionId(int processId)
-    {
-        int sessionId = -1;
-        if (TryGetProcPid(processId, out ProcPid procPid))
-        {
-            var content = File.ReadAllText(GetProcStat(procPid)).AsSpan().Trim();
-            if (int.TryParse(GetField(content, ' ', 5).Trim(), CultureInfo.InvariantCulture, out int sid))
-            {
-                sessionId = sid;
-            }
-        }
-
-        return sessionId;
     }
 
     internal static string? GetProcessCurrentDirectory(int processId)

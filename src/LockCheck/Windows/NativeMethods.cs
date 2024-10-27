@@ -495,9 +495,11 @@ internal static partial class NativeMethods
     private static extern bool GetProcessTimes(SafeProcessHandle handle, out long creation, out long exit, out long kernel, out long user);
 #endif
 
-    internal static DateTime GetProcessStartTime(SafeProcessHandle handle)
+    internal static DateTime GetProcessStartTime(int processId)
     {
-        if (GetProcessTimes(handle, out long creation, out _, out _, out _))
+        using var handle = OpenProcessLimited(processId);
+
+        if (!handle.IsInvalid && GetProcessTimes(handle, out long creation, out _, out _, out _))
         {
             return DateTime.FromFileTime(creation);
         }

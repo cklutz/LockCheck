@@ -19,7 +19,8 @@ internal static class NtDll
     {
         public PseudoPeb(SYSTEM_PROCESS_INFORMATION pi, string? executable, string? systemAccount, string? processName = null)
         {
-            ProcessId = (int)pi.UniqueProcessId;
+            ProcessId = pi.UniqueProcessId.ToInt32();
+            ParentProcessId = pi.InheritedFromUniqueProcessId.ToInt32();
             ExecutableFullPath = executable;
             ProcessName = pi.NamePtr != IntPtr.Zero ? Marshal.PtrToStringUni(pi.NamePtr) : processName;
             Owner = systemAccount;
@@ -27,6 +28,7 @@ internal static class NtDll
         }
 
         public int ProcessId { get; private set; }
+        public int? ParentProcessId { get; private set; }
         public string? ProcessName { get; private set; }
         public string? ExecutableFullPath { get; private set; }
         public string? Owner { get; private set; }
@@ -246,7 +248,7 @@ internal static class NtDll
                     // case).
                     if (dirs!.FindIndex(d => peb.CurrentDirectory.StartsWith(d, StringComparison.OrdinalIgnoreCase)) != -1)
                     {
-                        return (ProcessInfo)ProcessInfoWindows.Create(peb);
+                        return (ProcessInfo)new ProcessInfoWindows(peb);
                     }
                 }
 
