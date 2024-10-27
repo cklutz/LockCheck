@@ -8,6 +8,12 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using LockCheck;
+using Spectre.Console;
+using Spectre.Console.Json;
+using Spectre.Console.Rendering;
+
+
+
 #if FEATURE_JMSE_QUERY
 using JsonCons.JmesPath;
 #endif
@@ -17,6 +23,7 @@ namespace LockCheckTool;
 internal abstract class LCCommand : Command
 {
     internal static bool Verbose { get; set; }
+    internal static bool NoColor { get; set; }
 
     protected LCCommand(string name, string? description = null)
         : base(name, description)
@@ -70,7 +77,7 @@ internal abstract class LCCommand : Command
     protected void LogError(IConsole console, ref DefaultInterpolatedStringHandler handler) => console.Error.Write("error: " + handler.ToStringAndClear() + Environment.NewLine);
 #endif
 
-    protected static IOutput GetActualOutput(InvocationContext context, string? outputPath)
+    protected IOutput GetActualOutput(InvocationContext context, string? outputPath)
     {
         IOutput? actualOutput;
         if (outputPath != null)
@@ -85,7 +92,7 @@ internal abstract class LCCommand : Command
         }
         else
         {
-            actualOutput = new ConsoleOutput(context.Console.Out);
+            actualOutput = new ConsoleOutput(context.Console.Out, NoColor);
         }
 
         return actualOutput;
@@ -96,8 +103,8 @@ internal abstract class LCCommand : Command
     {
         switch (outputFormat)
         {
+            case OutputFormats.PlainJson:
             case OutputFormats.Json:
-            case OutputFormats.PrettyJson:
                 OutputJson(output, outputFormat, query, data);
                 break;
             case OutputFormats.Csv:
@@ -105,6 +112,9 @@ internal abstract class LCCommand : Command
                 break;
             case OutputFormats.Tsv:
                 OutputDelimited(output, '\t', query, data);
+                break;
+            case OutputFormats.Table:
+                OutputTable(output, query, data);
                 break;
             default:
                 OutputPlain(output, data);
@@ -172,10 +182,124 @@ internal abstract class LCCommand : Command
         FormatSupport.FormatAsRowsWithDelimiter(element, delimiter, output, true);
     }
 
+    protected virtual void OutputTable<T>(IOutput output, string? query, IEnumerable<T> data)
+    {
+        if (output.NoColor)
+        {
+            OutputDelimited(output, ' ', query, data);
+            return;
+        }
+
+        // Use query if specified, to allow user to select the columns to display via "--query".
+        // So first convert to respective JSON and then format this as a table.
+        var element = GetAsJsonElement(query, data);
+        AnsiConsole.Write(RenderJsonArrayAsTable(element));
+    }
+
+    static IRenderable RenderJsonArrayAsTable(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidOperationException($"Unexpected value kind {element.ValueKind}.");
+        }
+
+        var table = new Table();
+        table.SimpleBorder();
+
+        bool first = true;
+        List<IRenderable>? rowValues = null;
+        foreach (var entry in element.EnumerateArray())
+        {
+            if (first)
+            {
+                rowValues = new List<IRenderable>();
+                foreach (JsonProperty property in entry.EnumerateObject())
+                {
+                    var field = GetField(property);
+                    if (field != null)
+                    {
+                        var column = table.AddColumn(property.Name);
+                        rowValues.Add(field);
+                    }
+                }
+
+                first = false;
+            }
+            else
+            {
+                rowValues!.Clear();
+                foreach (JsonProperty property in entry.EnumerateObject())
+                {
+                    var field = GetField(property);
+                    if (field != null)
+                    {
+                        rowValues.Add(field);
+                    }
+                }
+            }
+
+            table.AddRow(rowValues);
+        }
+
+        return table;
+    }
+
+#if false
+    // TODO: Currently unused, because generically using them for bool "true"/"false" has subtile effects
+    // on output. For example, if "HasErrors = false" it is actually "a good thing", but on first sight
+    // representing this with a "red cross mark" looks like an error.
+
+    // If these don't show up correctly, ensure that your console output encoding is UTF8
+    // Powershell: [console]::InputEncoding = [console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+    // We could also set this in Program.Main(), but then things like "lockchecktool | more" will return
+    // garbage.
+    private static readonly string s_checkMark = Emoji.Replace(":check_mark:");
+    private static readonly string s_crossMark = Emoji.Replace(":cross_mark:");
+#endif
+
+    static IRenderable? GetField(JsonProperty property)
+    {
+        if (property.NameEquals("$type") || property.Value.ValueKind == JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        object? value = property.Value.GetValueApproximation();
+
+        switch (property.Value.ValueKind)
+        {
+            case JsonValueKind.String:
+                if (value == null) goto case JsonValueKind.Null;
+                return new Text(value?.ToString()!).LeftJustified();
+            case JsonValueKind.Number:
+                if (value == null) goto case JsonValueKind.Null;
+                return new Text(value?.ToString()!).RightJustified();
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                if (value == null) goto case JsonValueKind.Null;
+                return new Text(((bool)value) ? "true" : "false").Centered();
+            case JsonValueKind.Null:
+                return new Text("");
+            case JsonValueKind.Array:
+                return RenderJsonArrayAsTable(property.Value);
+        }
+
+        return new Text(value?.ToString() ?? "");
+    }
+
     protected virtual void OutputJson<T>(IOutput output, OutputFormats outputFormat, string? query, IEnumerable<T> data)
     {
-        string json = GetJson(query, data, outputFormat == OutputFormats.PrettyJson);
-        output.WriteLine(json);
+        if (output.NoColor || outputFormat == OutputFormats.PlainJson)
+        {
+            string json = GetJson(query, data, outputFormat == OutputFormats.Json);
+            output.WriteLine(json);
+        }
+        else
+        {
+            string json = GetJson(query, data, false);
+            var formatted = new JsonText(json);
+            AnsiConsole.Write(formatted);
+        }
     }
 
     protected virtual void OutputPlain<T>(IOutput output, IEnumerable<T> data)

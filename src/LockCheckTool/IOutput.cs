@@ -8,4 +8,5 @@ internal interface IOutput : IDisposable
     void Write(string? text);
     void WriteLine(string? text);
     void WriteLine();
+    bool NoColor { get; }
 }

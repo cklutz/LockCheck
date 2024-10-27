@@ -15,6 +15,8 @@ internal class FileOutput : IOutput
         _fileStream = fileStream;
     }
 
+    public bool NoColor => false;
+
     public void Dispose()
     {
         _fileStream.Dispose();

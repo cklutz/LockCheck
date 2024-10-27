@@ -3,6 +3,7 @@ using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
 using System.Diagnostics;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace LockCheckTool;
@@ -21,6 +22,7 @@ internal class Program
         commandLineBuilder.AddMiddleware(async (context, next) =>
         {
             LCCommand.Verbose = context.ParseResult.GetValueForOption(rootCommand.Verbose);
+            LCCommand.NoColor = context.ParseResult.GetValueForOption(rootCommand.NoColor);
 
             await next(context);
         });
