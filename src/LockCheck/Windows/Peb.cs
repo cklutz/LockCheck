@@ -34,6 +34,7 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
     public bool HasError { get; private set; }
     public bool? IsCritical { get; private set; }
     public bool IsPseudoProcess { get; private set; }
+    public ulong? ProcessSequenceNumber { get; private set; }
 
     public void SetError(Exception? ex = null, int errorCode = 0)
     {
@@ -52,13 +53,14 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
         }
     }
 
-    internal Peb(SYSTEM_PROCESS_INFORMATION pi)
+    internal Peb(SYSTEM_PROCESS_INFORMATION pi, ulong? processSequenceNumber)
     {
         // Convert as many members as possible, without actually needing to open the process handle.
         // Also, ProcessId/StartTime serve as identity. So it is "useful" to have them.
         ProcessId = pi.UniqueProcessId.ToInt32();
         StartTime = DateTime.FromFileTime(pi.CreateTime);
         ParentProcessId = pi.InheritedFromUniqueProcessId.ToInt32();
+        ProcessSequenceNumber = processSequenceNumber;
 
         if (pi.NamePtr != IntPtr.Zero)
         {
@@ -95,6 +97,7 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
             Owner = pseudoPeb.Owner;
             SessionId = pseudoPeb.SessionId;
             ParentProcessId = pseudoPeb.ParentProcessId;
+            ProcessSequenceNumber ??= pseudoPeb.ProcessSequenceNumber;
         }
         else
         {
@@ -183,8 +186,17 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
 
             peb.SessionId = GetInt32(handle, pbi.PebBaseAddress, offsets.SessionIdOffset, peb);
         }
-    }
 
+        if (SupportsProcessSequenceNumber && peb.ProcessSequenceNumber == null)
+        {
+            using var psn = new ScopedNativeMemory(Marshal.SizeOf<ulong>());
+            var buffer = (IntPtr)psn;
+            if (SUCCEEDED(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessSequenceNumber, ref buffer, psn.Size, IntPtr.Zero), peb))
+            {
+                peb.ProcessSequenceNumber = (ulong)buffer.ToInt64();
+            }
+        }
+    }
 
     private static void InitTarget64Self32(SafeProcessHandle handle, PebOffsets offsets, Peb peb)
     {
@@ -204,6 +216,16 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
             }
 
             peb.SessionId = GetInt32Target64(handle, pbi.PebBaseAddress, offsets.SessionIdOffset, peb);
+        }
+
+        if (SupportsProcessSequenceNumber && peb.ProcessSequenceNumber == null)
+        {
+            using var psn = new ScopedNativeMemory(Marshal.SizeOf<ulong>());
+            var buffer = (IntPtr)psn;
+            if (SUCCEEDED(NtWow64QueryInformationProcess64(handle, PROCESS_INFORMATION_CLASS.ProcessSequenceNumber, ref buffer, psn.Size, IntPtr.Zero), peb))
+            {
+                peb.ProcessSequenceNumber = (ulong)buffer.ToInt64();
+            }
         }
     }
 
@@ -229,6 +251,16 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
                 }
 
                 peb.SessionId = GetInt32Target32(handle, new IntPtr(peb32.ToInt64()), offsets.SessionIdOffset, peb);
+            }
+
+            if (SupportsProcessSequenceNumber && peb.ProcessSequenceNumber == null)
+            {
+                using var psn = new ScopedNativeMemory(Marshal.SizeOf<ulong>());
+                var buffer = (IntPtr)psn;
+                if (SUCCEEDED(NtQueryInformationProcessWow64(handle, PROCESS_INFORMATION_CLASS.ProcessSequenceNumber, ref buffer, psn.Size, IntPtr.Zero), peb))
+                {
+                    peb.ProcessSequenceNumber = (ulong)buffer.ToInt64();
+                }
             }
         }
     }

@@ -64,12 +64,11 @@ public class ProcessInfoWindowsTests
             UniqueProcessId = (IntPtr)Process.GetCurrentProcess().Id,
             CreateTime = ts.ToFileTime()
         };
-        var peb = new Peb(pi);
+        var peb = new Peb(pi, 4711);
 
         var result = new ProcessInfoWindows(peb);
 
         Assert.IsNotNull(result);
-        Assert.AreEqual(peb.ProcessId, result.ProcessId);
         Assert.AreEqual(peb.ProcessId, result.ProcessId);
         Assert.AreEqual(ts, result.StartTime);
     }

@@ -19,7 +19,7 @@ internal static class FormatSupport
 
     private static void FormatAsRowsWithDelimiterCore(JsonElement element, char delimiter, IOutput tw, bool includeHeaders, bool top)
     {
-        if (element.IsValue())
+        if (element.IsScalar())
         {
             WriteQuoted(tw, delimiter, element.GetValueApproximation()?.ToString());
         }
@@ -93,7 +93,7 @@ internal static class FormatSupport
 
     }
 
-    public static bool IsValue(this JsonElement element)
+    public static bool IsScalar(this JsonElement element)
     {
         var kind = element.ValueKind;
         return kind == JsonValueKind.False ||

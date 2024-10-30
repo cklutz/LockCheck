@@ -83,7 +83,7 @@ public class NtDllTests
         using var self = Process.GetCurrentProcess();
         bool found = false;
         int count = 0;
-        var result = NtDll.EnumerateSystemProcesses([self.Id], self.Id, (mp, idx, pi) =>
+        var result = NtDll.EnumerateSystemProcesses([self.Id], self.Id, (mp, idx, pi, seq) =>
         {
             if ((int)pi.UniqueProcessId == mp)
             {
@@ -104,7 +104,7 @@ public class NtDllTests
         using var self = Process.GetCurrentProcess();
         bool found = false;
         int count = 0;
-        var result = NtDll.EnumerateSystemProcesses(null, self.Id, (mp, idx, pi) =>
+        var result = NtDll.EnumerateSystemProcesses(null, self.Id, (mp, idx, pi, seq) =>
         {
             if ((int)pi.UniqueProcessId == mp)
             {

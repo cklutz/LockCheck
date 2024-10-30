@@ -11,6 +11,10 @@ using LockCheck;
 using Spectre.Console;
 using Spectre.Console.Json;
 using Spectre.Console.Rendering;
+using System.Collections;
+using System.Runtime.ExceptionServices;
+
+
 
 
 
@@ -117,7 +121,7 @@ internal abstract class LCCommand : Command
                 OutputTable(output, query, data);
                 break;
             default:
-                OutputPlain(output, data);
+                OutputPlain(output, query, data);
                 break;
         }
     }
@@ -302,33 +306,46 @@ internal abstract class LCCommand : Command
         }
     }
 
-    protected virtual void OutputPlain<T>(IOutput output, IEnumerable<T> data)
+    protected virtual void OutputPlain<T>(IOutput output, string? query, IEnumerable<T> data)
     {
-        if (data == null || !data.Any())
+        // Use query if specified, to allow user to select the columns to display via "--query".
+        // So first convert to respective JSON and then format this as a table.
+        var element = GetAsJsonElement(query, data);
+
+        if (element.ValueKind != JsonValueKind.Array)
         {
-            output.WriteLine("No data.");
+            throw new InvalidOperationException($"Unexpected value kind {element.ValueKind}.");
+        }
+
+        if (element.GetArrayLength() == 0)
+        {
             return;
         }
 
-        var properties = typeof(T).GetProperties();
-        if (properties.Length == 0)
-        {
-            throw new ArgumentException($"Type {typeof(T)} has no public properties", nameof(data));
-        }
-
-        int maxLen = properties.Max(p => p.Name.Length);
         bool first = true;
-
-        foreach (var item in data)
+        int maxLen = 0;
+        foreach (var item in element.EnumerateArray())
         {
-            if (!first)
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidOperationException($"Unexpected value kind {item.ValueKind}.");
+            }
+
+            // Ignore nested objects and arrays
+            var properties = item.EnumerateObject().Where(v => v.Value.IsScalar() && !v.NameEquals("$type"));
+
+            if (first)
+            {
+                maxLen = properties.Max(p => p.Name.Length);
+            }
+            else
             {
                 output.WriteLine("----------------------------------------------------------");
             }
 
             foreach (var property in properties)
             {
-                output.WriteLine($"{property.Name.PadRight(maxLen)}: {property.GetValue(item)}");
+                output.WriteLine($"{property.Name.PadRight(maxLen)}: {property.Value.GetValueApproximation()}");
             }
 
             first = false;

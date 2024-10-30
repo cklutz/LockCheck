@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -60,12 +60,13 @@ internal static partial class NativeMethods
     internal enum PROCESS_INFORMATION_CLASS
     {
         ProcessBasicInformation = 0,
-        ProcessWow64Information = 26
+        ProcessWow64Information = 26,
+        ProcessSequenceNumber = 92,
     }
 
     internal enum SYSTEM_INFORMATION_CLASS
     {
-        SystemProcessInformation = 5
+        SystemProcessInformation = 5,
     }
 
 #if NET
@@ -92,6 +93,19 @@ internal static partial class NativeMethods
 
 #if NET
     [LibraryImport(NtDll)]
+    internal static partial uint NtQueryInformationProcess(SafeProcessHandle hProcess,
+        PROCESS_INFORMATION_CLASS processInformationClass,
+        ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
+#else
+    [DllImport(NtDll)]
+    internal static extern uint NtQueryInformationProcess(SafeProcessHandle hProcess,
+        PROCESS_INFORMATION_CLASS processInformationClass,
+        ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
+#endif
+
+
+#if NET
+    [LibraryImport(NtDll)]
     internal static partial int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess,
         PROCESS_INFORMATION_CLASS processInformationClass,
         ref PROCESS_BASIC_INFORMATION_WOW64 processInformation, int processInformationLength, IntPtr returnLength);
@@ -100,6 +114,18 @@ internal static partial class NativeMethods
     internal static extern int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess,
         PROCESS_INFORMATION_CLASS processInformationClass,
         ref PROCESS_BASIC_INFORMATION_WOW64 processInformation, int processInformationLength, IntPtr returnLength);
+#endif
+
+#if NET
+    [LibraryImport(NtDll)]
+    internal static partial int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess,
+        PROCESS_INFORMATION_CLASS processInformationClass,
+        ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
+#else
+    [DllImport(NtDll)]
+    internal static extern int NtWow64QueryInformationProcess64(SafeProcessHandle hProcess,
+        PROCESS_INFORMATION_CLASS processInformationClass,
+        ref IntPtr processInformation, int processInformationLength, IntPtr returnLength);
 #endif
 
 #if NET
@@ -335,6 +361,39 @@ internal static partial class NativeMethods
 
         return result;
     }, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    // The following lazy initializes whether ProcessSequenceNumber is available or not.
+    // Doing it the following way saves us a Lazy<> instance's overhead at the cost of
+    // potentially doing the logic multiple times if multiple threads make it inside the
+    // "if (.. == 0)". 
+    private static int s_supportsProcessSequenceNumber;
+    internal static bool SupportsProcessSequenceNumber
+    {
+        get
+        {
+            if (s_supportsProcessSequenceNumber == 0)
+            {
+                // Not available when self is WOW64.
+                // NtQuerySystemInformation() does not return the SYSTEM_PROCESS_INFORMATION_EXTENSION then it seems.
+                // Also PROCESS_INFORMATION_CLASS.ProcessSequenceNumber is not available.
+                if (!IsCurrentProcessWow64Process)
+                {
+                    // According to: https://learn.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-enable_trace_parameters
+                    // "Supported on Windows 10, version 1507 and later. This is also supported on Windows 8.1 and Windows 7 with SP1 via a patch."
+                    // We ignore versions 8.1 and 7. Version 1507 is build 10240.
+                    var ver = Environment.OSVersion.Version;
+                    s_supportsProcessSequenceNumber = ver.Major > 10 || (ver.Major == 10 && ver.Build >= 10240) ? 1 : 2;
+                }
+                else
+                {
+                    s_supportsProcessSequenceNumber = 2;
+                }
+            }
+
+            return s_supportsProcessSequenceNumber == 1;
+        }
+    }
+
 
     internal static IEnumerable<string> GetKnownCriticalProcesses() => s_critical.Value;
 
@@ -694,9 +753,10 @@ internal static partial class NativeMethods
     {
         internal uint NextEntryOffset;
         internal uint NumberOfThreads;
-        internal long SpareLi1;
-        internal long SpareLi2;
-        internal long SpareLi3;
+        internal long WorkingSetPrivateSize;
+        internal uint HardFaultCount;
+        internal uint NumberOfThreadsHighWatermark;
+        internal long CycleTime;
         internal long CreateTime;
         internal long UserTime;
         internal long KernelTime;
@@ -731,6 +791,137 @@ internal static partial class NativeMethods
         internal long ReadTransferCount;
         internal long WriteTransferCount;
         internal long OtherTransferCount;
+
+        internal IntPtr Threads;
+    }
+
+    public static int GetExtensionOffset(this SYSTEM_PROCESS_INFORMATION si)
+    {
+        // This is only valid when PROCESS_INFORMATION_CLASS.ProcessInformation was used.
+        // ProcessFullInformation (only as Admin) and ProcessExtendedInformation are different.
+        return (int)(
+            IntPtr.Add(Marshal.OffsetOf(typeof(SYSTEM_PROCESS_INFORMATION), nameof(SYSTEM_PROCESS_INFORMATION.Threads)),
+            (int)(Marshal.SizeOf<SYSTEM_THREAD_INFORMATION>() * si.NumberOfThreads)));
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct CLIENT_ID
+    {
+        public IntPtr UniqueProcess; // HANDLE to the process
+        public IntPtr UniqueThread;  // HANDLE to the thread
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SYSTEM_THREAD_INFORMATION
+    {
+        public ulong KernelTime;         // Total time in kernel mode
+        public ulong UserTime;           // Total time in user mode
+        public ulong CreateTime;         // Time thread was created
+        public uint WaitTime;            // Time the thread has been in the wait state
+        public IntPtr StartAddress;      // Pointer to the thread start address
+        public CLIENT_ID ClientId;       // Identifies the thread
+        public int Priority;             // Thread priority
+        public int BasePriority;         // Base priority of the thread
+        public uint ContextSwitchCount;  // Number of context switches
+        public uint ThreadState;         // State of the thread
+        public uint WaitReason;          // Reason the thread is in the wait state
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct PROCESS_DISK_COUNTERS
+    {
+        public ulong BytesRead;
+        public ulong BytesWritten;
+        public ulong ReadOperationCount;
+        public ulong WriteOperationCount;
+        public ulong FlushOperationCount;
+    }
+
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct ENERGY_STATE_DURATION
+    {
+        public ulong Value; // Single ulong member to hold the combined data
+        
+        public uint LastChangeTime => (uint)(Value & 0xFFFFFFFF); // LastChangeTime: occupies the first 4 bytes
+        public uint Duration => (uint)((Value >> 32) & 0x7FFFFFFF);  // Duration: 31 bits (bits 32-62)
+        public bool IsInState => (Value & 0x8000000000000000UL) != 0;  // IsInState: 1 bit (bit 63)
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+
+    internal struct ULongArray4By2
+    {
+        public ulong Cycles1;
+        public ulong Cycles2;
+        public ulong Cycles3;
+        public ulong Cycles4;
+        public ulong Cycles5;
+        public ulong Cycles6;
+        public ulong Cycles7;
+        public ulong Cycles8;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct PROCESS_ENERGY_VALUES
+    {
+        public fixed ulong Cycles[8]; // This represents array[4][2]
+        
+        public ulong DiskEnergy;
+        public ulong NetworkTailEnergy;
+        public ulong MBBTailEnergy;
+        public ulong NetworkTxRxBytes;
+        public ulong MBBTxRxBytes;
+
+        // Array of ENERGY_STATE_DURATION structs with a fixed size of 3
+        public ENERGY_STATE_DURATION ForegroundDuration;
+        public ENERGY_STATE_DURATION DesktopVisibleDuration;
+        public ENERGY_STATE_DURATION PSMForegroundDuration;
+
+        public uint CompositionRendered;
+        public uint CompositionDirtyGenerated;
+        public uint CompositionDirtyPropagated;
+        public uint Reserved1;
+
+        public fixed ulong AttributedCycles[8]; // This represents array[4][2]
+        public fixed ulong WorkOnBehalfCycles[8]; // This represents array[4][2]
+
+        public static ulong GetElement(int row, int column, ulong[] value)
+        {
+            if (row < 0 || row >= 4)
+            {
+                throw new ArgumentOutOfRangeException(nameof(row), row, null);
+            }
+
+            if (column < 0 || column >= 2)
+            {
+                throw new ArgumentOutOfRangeException(nameof(column), column, null);
+            }
+
+            return value[(row * 2) + column];
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SYSTEM_PROCESS_INFORMATION_EXTENSION
+    {
+        // Nested structure
+        public PROCESS_DISK_COUNTERS DiskCounters;
+
+        public ulong ContextSwitches;
+        public uint Flags;
+        public uint UserSidOffset;
+        public uint PackageFullNameOffset;
+
+        // Nested structure
+        public PROCESS_ENERGY_VALUES EnergyValues;
+
+        public uint AppIdOffset;
+        public IntPtr SharedCommitCharge;
+        public uint JobObjectId;
+        public uint SpareUlong;
+
+        public ulong ProcessSequenceNumber;
     }
 #pragma warning restore 169
 
@@ -916,4 +1107,63 @@ internal static partial class NativeMethods
 #else
     internal static string GetMessage(int errorCode) => $"{new Win32Exception(errorCode).Message}  (0x{errorCode:X8})";
 #endif
+
+    internal unsafe readonly struct ScopedNativeMemory : IDisposable
+    {
+#if NET
+        private readonly void* _buffer;
+#else
+        private readonly IntPtr _buffer;
+#endif
+        private readonly uint _size;
+
+        public ScopedNativeMemory(uint size)
+        {
+            _size = size;
+#if NET
+            _buffer = NativeMemory.Alloc(size);
+#else
+            _buffer = Marshal.AllocHGlobal((int)size);
+#endif
+        }
+
+        public ScopedNativeMemory(int size)
+        {
+            _size = (uint)size;
+#if NET
+            _buffer = NativeMemory.Alloc((UIntPtr)size);
+#else
+            _buffer = Marshal.AllocHGlobal(size);
+#endif
+        }
+
+        public int Size => (int)_size;
+
+        public static explicit operator IntPtr(ScopedNativeMemory memory)
+        {
+#if NET
+            return (IntPtr)memory._buffer;
+#else
+            return memory._buffer;
+#endif
+        }
+
+        public static explicit operator void*(ScopedNativeMemory memory)
+        {
+#if NET
+            return memory._buffer;
+#else
+            return (void*)memory._buffer;
+#endif
+        }
+
+        public void Dispose()
+        {
+#if NET
+            NativeMemory.Free(_buffer);
+#else
+            Marshal.FreeHGlobal(_buffer);
+#endif
+        }
+    }
 }

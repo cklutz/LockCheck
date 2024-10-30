@@ -17,13 +17,14 @@ internal static class NtDll
 {
     internal class PseudoPeb
     {
-        public PseudoPeb(SYSTEM_PROCESS_INFORMATION pi, string? executable, string? systemAccount, string? processName = null)
+        public PseudoPeb(SYSTEM_PROCESS_INFORMATION pi, string? executable, string? systemAccount, string? processName = null, ulong? processSequenceNumber = null)
         {
             ProcessId = pi.UniqueProcessId.ToInt32();
             ParentProcessId = pi.InheritedFromUniqueProcessId.ToInt32();
             ExecutableFullPath = executable;
             ProcessName = pi.NamePtr != IntPtr.Zero ? Marshal.PtrToStringUni(pi.NamePtr) : processName;
             Owner = systemAccount;
+            ProcessSequenceNumber = processSequenceNumber;
             StartTime = DateTime.FromFileTime(pi.CreateTime);
         }
 
@@ -32,6 +33,7 @@ internal static class NtDll
         public string? ProcessName { get; private set; }
         public string? ExecutableFullPath { get; private set; }
         public string? Owner { get; private set; }
+        public ulong? ProcessSequenceNumber { get; }
         public DateTime StartTime { get; private set; }
         public int SessionId => 0;
         public bool? IsCritical => true;
@@ -44,19 +46,19 @@ internal static class NtDll
         string? systemAccount = GetSystemAccountName();
         var result = new Dictionary<int, PseudoPeb>();
 
-        EnumerateSystemProcesses(null, result, (res, _, pi) =>
+        EnumerateSystemProcesses(null, result, (res, _, pi, processSequenceNumber) =>
         {
             if ((int)pi.UniqueProcessId == 0)
             {
                 // "System Idle Process" always PID 0, does not have a name, even in SYSTEM_PROCESS_INFORMATION.NamePtr
-                res![0] = new PseudoPeb(pi, null, systemAccount, "System Idle Process");
+                res![0] = new PseudoPeb(pi, null, systemAccount, "System Idle Process", processSequenceNumber);
             }
             else if (pi.NamePtr != IntPtr.Zero)
             {
                 string? name = Marshal.PtrToStringUni(pi.NamePtr);
                 if (name != null && TryGetSystemPseudoProcessExecutable(name, out var executable))
                 {
-                    var pseudoPeb = new PseudoPeb(pi, executable, systemAccount);
+                    var pseudoPeb = new PseudoPeb(pi, executable, systemAccount, processSequenceNumber: processSequenceNumber);
                     res![pseudoPeb.ProcessId] = pseudoPeb;
                 }
             }
@@ -115,9 +117,9 @@ internal static class NtDll
     public static HashSet<IWin32ProcessDetails> GetAllProcesses()
     {
         return EnumerateSystemProcesses(null, (object?)null,
-            static (_, idx, pi) =>
+            static (_, idx, pi, seq) =>
             {
-                return (IWin32ProcessDetails)new Peb(pi);
+                return (IWin32ProcessDetails)new Peb(pi, seq);
             })
             .Select(v => v.Value)
             .ToHashSet();
@@ -236,9 +238,9 @@ internal static class NtDll
         }
 
         return EnumerateSystemProcesses(null, directories,
-            static (dirs, idx, pi) =>
+            static (dirs, idx, pi, seq) =>
             {
-                var peb = new Peb(pi);
+                var peb = new Peb(pi, seq);
 
                 if (!peb.HasError && !string.IsNullOrEmpty(peb.CurrentDirectory))
                 {
@@ -277,7 +279,7 @@ internal static class NtDll
     internal static unsafe Dictionary<(int, DateTime), T> EnumerateSystemProcesses<T, TData>(
         HashSet<int>? processIds,
         TData? data,
-        Func<TData?, int, SYSTEM_PROCESS_INFORMATION, T?> newEntry)
+        Func<TData?, int, SYSTEM_PROCESS_INFORMATION, ulong?, T?> newEntry)
     {
         // Start with the default buffer size.
         uint bufferSize = s_mostRecentSize;
@@ -329,7 +331,7 @@ internal static class NtDll
         ReadOnlySpan<byte> current,
         HashSet<int>? processIds,
         TData? data,
-        Func<TData?, int, SYSTEM_PROCESS_INFORMATION, T?> newEntry)
+        Func<TData?, int, SYSTEM_PROCESS_INFORMATION, ulong?, T?> newEntry)
     {
         var processInfos = new Dictionary<(int, DateTime), T>();
         int processInformationOffset = 0;
@@ -338,12 +340,18 @@ internal static class NtDll
         while (true)
         {
             ref readonly var pi = ref MemoryMarshal.AsRef<SYSTEM_PROCESS_INFORMATION>(current.Slice(processInformationOffset));
-
             int pid = pi.UniqueProcessId.ToInt32();
+
+            ulong? seq = null;
+            if (SupportsProcessSequenceNumber)
+            {
+                ref readonly var pix = ref MemoryMarshal.AsRef<SYSTEM_PROCESS_INFORMATION_EXTENSION>(current.Slice(processInformationOffset + pi.GetExtensionOffset()));
+                seq = pix.ProcessSequenceNumber;
+            }
 
             if (processIds == null || processIds.Contains(pid))
             {
-                var entry = newEntry(data, count, pi);
+                var entry = newEntry(data, count, pi, seq);
                 if (entry != null)
                 {
                     processInfos.Add((pid, DateTime.FromFileTime(pi.CreateTime)), entry);
@@ -371,7 +379,7 @@ internal static class NtDll
     internal static Dictionary<(int, DateTime), T> EnumerateSystemProcesses<T, TData>(
         HashSet<int>? processIds,
         TData? data,
-        Func<TData?, int, SYSTEM_PROCESS_INFORMATION, T?> newEntry)
+        Func<TData?, int, SYSTEM_PROCESS_INFORMATION, ulong?, T?> newEntry)
     {
         var processInfos = new Dictionary<(int, DateTime), T>();
         var bufferHandle = new GCHandle();
@@ -438,7 +446,7 @@ internal static class NtDll
                 if (processIds == null || processIds.Contains(pid))
                 {
                     var startTime = DateTime.FromFileTime(pi.CreateTime);
-                    var entry = newEntry(data, count, pi);
+                    var entry = newEntry(data, count, pi, null);
                     if (entry != null)
                     {
                         processInfos.Add((pid, startTime), entry);
