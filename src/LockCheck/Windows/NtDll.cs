@@ -371,7 +371,8 @@ internal static class NtDll
 
 #else
     //
-    // This implementation with based on .NET Frameworks Process class.
+    // This implementation with based on .NET Frameworks Process class. It does not provide all the features as the
+    // .NET version. For example, it does not access SYSTEM_PROCESS_INFORMATION_EXTENSION to get the ProcessSequenceNumber.
     //
 
     private static long[]? s_cachedBuffer;

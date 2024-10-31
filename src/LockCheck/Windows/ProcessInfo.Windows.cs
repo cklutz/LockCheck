@@ -26,5 +26,6 @@ internal class ProcessInfoWindows : ProcessInfo
         SessionId = peb.SessionId;
         Owner = peb.Owner;
         IsCritical = peb.IsCritical;
+        ProcessStartKey = peb.ProcessStartKey;
     }
 }

@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
-using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
@@ -747,6 +745,133 @@ internal static partial class NativeMethods
         }
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct KSYSTEM_TIME
+    {
+        public uint LowPart;
+        public int High1Time;
+        public int High2Time;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private unsafe readonly struct KUSER_SHARED_DATA
+    {
+        // The kernel maps KUSER_SHARED_DATA at this address into each process.
+        // Regardless of the bitness of the process. Also, the structure has the
+        // same field-width, regardless of the bitness of the process.
+        internal const nint Address = 0x7ffe_0000;
+
+        // Only part of the KUSER_SHARED_DATA up to "BootId", which is really the only field we need.
+        // More fields. See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-kuser_shared_data
+
+        public readonly uint TickCountLowDeprecated;
+        public readonly uint TickCountMultiplier;
+        public readonly KSYSTEM_TIME InterruptTime;
+        public readonly KSYSTEM_TIME SystemTime;
+        public readonly KSYSTEM_TIME TimeZoneBias;
+        public readonly ushort ImageNumberLow;
+        public readonly ushort ImageNumberHigh;
+
+        public readonly STRING_260 NtSystemRoot;
+
+        public readonly uint MaxStackTraceDepth;
+        public readonly uint CryptoExponent;
+        public readonly uint TimeZoneId;
+        public readonly uint LargePageMinimum;
+        public readonly uint AitSamplingValue;
+        public readonly uint AppCompatFlag;
+        public readonly ulong RNGSeedVersion;
+        public readonly uint GlobalValidationRunlevel;
+        public readonly int TimeZoneBiasStamp;
+        public readonly uint NtBuildNumber;
+        public readonly int NtProductType;
+        public readonly byte ProductTypeIsValid;
+
+        public readonly byte Reserved0;
+
+        public readonly ushort NativeProcessorArchitecture;
+        public readonly uint NtMajorVersion;
+        public readonly uint NtMinorVersion;
+
+        public readonly BOOL_ARRAY_64 ProcessorFeatures;
+
+        public readonly uint Reserved1;
+        public readonly uint Reserved3;
+        public readonly uint TimeSlip;
+        public readonly int AlternativeArchitecture;
+        public readonly uint BootId;
+
+        // ...
+
+        // Helpers so we can make this structure readonly. Currently we don't read the members using these
+        // types, but for completeness we account for them properly.
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct STRING_260
+        {
+            private fixed char _buffer[260];
+
+            public override string ToString()
+            {
+                fixed (char* s = _buffer)
+                {
+                    return new string(s);
+                }
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct BOOL_ARRAY_64
+        {
+            private fixed byte _buffer[64];
+
+            public bool[] Values
+            {
+                get
+                {
+                    fixed (byte* s = _buffer)
+                    {
+                        bool[] res = new bool[64];
+                        for (int i = 0; i < res.Length; i++)
+                        {
+                            res[i] = 1 == *(s + i);
+                        }
+                        return res;
+                    }
+                }
+            }
+        }
+    }
+
+    internal static unsafe uint GetBootId()
+    {
+        // If we ever need other fields from KUSER_SHARED_DATA - please don't - we can
+        // simple unmarshall the whole thing using the typical:
+        //
+        //     var sharedData = Marshal.PtrToStructure<KUSER_SHARED_DATA>(KUSER_SHARED_DATA.Address);
+        //
+        // However, currently we only need the BootId, thus the following is more efficient.
+
+        var ptr = IntPtr.Add(KUSER_SHARED_DATA.Address, (int)Marshal.OffsetOf<KUSER_SHARED_DATA>(nameof(KUSER_SHARED_DATA.BootId)));
+        return (uint)Marshal.ReadInt32(ptr);
+    }
+
+    internal static ulong GetProcessStartKey(ulong processSequenceNumber)
+    {
+        // Apparently, this is how the ETW ProcessStartKey is calculated.
+        // Reference: disassembly of PsGetProcessStartKey()
+        //
+        //    PsGetProcessStartKey proc near
+        //       mov     rax, 0FFFFF780000002C4h  // Load memory address of field "BootId" (offset 0x2C4 in KUSER_SHARED_DATA)
+        //       mov     eax, [rax]               // store BootId in eax
+        //       shl     rax, 30h                 // BootId >> 48 (0x30)
+        //       or      rax, [rcx+8F8h]          // SequenceNumber | rax
+        //       retn
+        //    PsGetProcessStartKey endp
+        // 
+        return ((ulong)GetBootId() << 0x30) | processSequenceNumber;
+    }
+
     // native struct defined in ntexapi.h
     [StructLayout(LayoutKind.Sequential)]
     internal struct SYSTEM_PROCESS_INFORMATION
@@ -842,31 +967,17 @@ internal static partial class NativeMethods
     internal struct ENERGY_STATE_DURATION
     {
         public ulong Value; // Single ulong member to hold the combined data
-        
+
         public uint LastChangeTime => (uint)(Value & 0xFFFFFFFF); // LastChangeTime: occupies the first 4 bytes
         public uint Duration => (uint)((Value >> 32) & 0x7FFFFFFF);  // Duration: 31 bits (bits 32-62)
         public bool IsInState => (Value & 0x8000000000000000UL) != 0;  // IsInState: 1 bit (bit 63)
     }
 
     [StructLayout(LayoutKind.Sequential)]
-
-    internal struct ULongArray4By2
-    {
-        public ulong Cycles1;
-        public ulong Cycles2;
-        public ulong Cycles3;
-        public ulong Cycles4;
-        public ulong Cycles5;
-        public ulong Cycles6;
-        public ulong Cycles7;
-        public ulong Cycles8;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct PROCESS_ENERGY_VALUES
     {
         public fixed ulong Cycles[8]; // This represents array[4][2]
-        
+
         public ulong DiskEnergy;
         public ulong NetworkTailEnergy;
         public ulong MBBTailEnergy;
@@ -905,22 +1016,16 @@ internal static partial class NativeMethods
     [StructLayout(LayoutKind.Sequential)]
     internal struct SYSTEM_PROCESS_INFORMATION_EXTENSION
     {
-        // Nested structure
         public PROCESS_DISK_COUNTERS DiskCounters;
-
         public ulong ContextSwitches;
         public uint Flags;
         public uint UserSidOffset;
         public uint PackageFullNameOffset;
-
-        // Nested structure
         public PROCESS_ENERGY_VALUES EnergyValues;
-
         public uint AppIdOffset;
         public IntPtr SharedCommitCharge;
         public uint JobObjectId;
         public uint SpareUlong;
-
         public ulong ProcessSequenceNumber;
     }
 #pragma warning restore 169

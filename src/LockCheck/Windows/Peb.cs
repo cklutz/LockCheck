@@ -35,6 +35,7 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
     public bool? IsCritical { get; private set; }
     public bool IsPseudoProcess { get; private set; }
     public ulong? ProcessSequenceNumber { get; private set; }
+    public ulong? ProcessStartKey { get; private set; }
 
     public void SetError(Exception? ex = null, int errorCode = 0)
     {
@@ -164,6 +165,11 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
             Owner = GetProcessOwner(process);
             IsCritical = IsProcessCritical(process, this);
             ProcessName ??= Path.GetFileName(ExecutableFullPath);
+        }
+
+        if (ProcessStartKey == null && ProcessSequenceNumber != null)
+        {
+            ProcessStartKey = GetProcessStartKey(ProcessSequenceNumber.Value);
         }
     }
 

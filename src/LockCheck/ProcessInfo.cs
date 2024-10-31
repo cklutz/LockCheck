@@ -84,6 +84,11 @@ public abstract class ProcessInfo
     /// </summary>
     public bool? IsCritical { get; protected set; }
 
+    /// <summary>
+    /// A platform specific process key. On Windows this is the value also available in ETW.
+    /// </summary>
+    public ulong? ProcessStartKey { get; protected set; }
+
     public override int GetHashCode()
     {
 #if NET

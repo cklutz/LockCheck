@@ -21,6 +21,7 @@ public interface IWin32ProcessDetails : IProcessDetails
 {
     bool IsPseudoProcess { get; }
     ulong? ProcessSequenceNumber { get; }
+    ulong? ProcessStartKey { get;  }
 }
 
 public interface ILinuxProcessDetails : IProcessDetails
