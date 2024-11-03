@@ -3,11 +3,9 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipes;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using LockCheck.Windows;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel.Client;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LockCheck.Tests.Tooling;
@@ -18,7 +16,14 @@ internal static class TestHelper
     {
         try
         {
-            fi?.Delete();
+            if (fi is DirectoryInfo di)
+            {
+                di.Delete(recursive: true);
+            }
+            else
+            {
+                fi?.Delete();
+            }
         }
         catch (Exception ex)
         {
@@ -360,6 +365,11 @@ internal static class TestHelper
                 process?.Dispose();
             }
         }
+    }
+
+    public static void AttachProcess(Process process)
+    {
+        s_selfJob.Value.AttachProcess(process);
     }
 
     public static void CreateShellWithCurrentDirectory(Action<(string TemporaryDirectory, int ProcessId, int SessionId, DateTime ProcessStartTime, string ProcessName, string ExecutableFullPath)> action)

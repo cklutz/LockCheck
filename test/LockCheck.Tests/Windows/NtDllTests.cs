@@ -1,12 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
+using System.Xml;
+using System.Xml.Linq;
+using System.Xml.XPath;
 using LockCheck.Tests.Tooling;
 using LockCheck.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace LockCheck.Tests.Windows;
 
@@ -119,5 +126,128 @@ public class NtDllTests
         Assert.IsTrue(count > 1);
         Assert.IsTrue(result.ContainsKey((self.Id, self.StartTime)));
         Assert.IsTrue(result.Count > 1);
+    }
+
+    // This test must run as admin, because otherwise we cannot use "logman.exe".
+    // Using Microsoft.Diagnostics.Tracing would not require running as admin,
+    // but the included parser does not expose the "ProcessSequenceNumber".
+    [SupportedTestMethodPlatform("windows", requiresAdminRights: true)]
+    public void EnumerateSystemProcesses_ShouldContainProcessSequenceNumber_IfSupported()
+    {
+        var tempDir = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test"));
+        tempDir.Create();
+
+        try
+        {
+            string traceId = "ProcessTrace." + Guid.NewGuid().ToString("N");
+            string traceFile = $"{tempDir.FullName}\\{traceId}.etl";
+            string reportFile = $"{tempDir.FullName}\\{traceId}.xml";
+            RunTool("logman.exe", $"create trace {traceId} -p Microsoft-Windows-Kernel-Process 0xFFFFFFFF -o \"{traceFile}\" -ets -y");
+
+            ulong? actualProcessSequenceNumber = null;
+            int processId = 0;
+            try
+            {
+                TestHelper.CreateSampleProcess(false,
+                    (process, _) =>
+                    {
+                        var result = NtDll.EnumerateSystemProcesses(null, process.Id, (mp, idx, pi, seq) =>
+                        {
+                            if ((int)pi.UniqueProcessId == mp)
+                            {
+                                actualProcessSequenceNumber = seq;
+                                processId = mp;
+                            }
+                            return 0;
+                        });
+                    });
+            }
+            finally
+            {
+                RunTool("logman.exe", $"stop {traceId} -ets");
+                RunTool("tracerpt.exe", $"\"{traceFile}\" -o \"{reportFile}\" -of XML -y");
+            }
+
+            string? expectedProcessSequenceNumber = GetReportDataValue(reportFile, processId, "ProcessSequenceNumber");
+
+            Assert.AreEqual(expectedProcessSequenceNumber, actualProcessSequenceNumber?.ToString());
+        }
+        finally
+        {
+            TestHelper.TryDelete(tempDir);
+        }
+    }
+
+    private static string? GetReportDataValue(string reportFile, int processId, string dataId)
+    {
+        var xdoc = XDocument.Load(reportFile);
+        var nsMgr = new XmlNamespaceManager(new NameTable());
+        nsMgr.AddNamespace("ns", "http://schemas.microsoft.com/win/2004/08/events/event");
+
+        string xpathQuery = $"//ns:Event[ns:EventData/ns:Data[@Name='ProcessID' and normalize-space(text())='{processId}']]/ns:EventData/ns:Data[@Name='{dataId}']";
+        string? dataValue = xdoc.XPathSelectElement(xpathQuery, nsMgr)?.Value;
+        return dataValue;
+    }
+
+    private static void RunTool(string executable, string arguments)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            throw new PlatformNotSupportedException();
+        }
+
+        var si = new ProcessStartInfo
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            Arguments = arguments
+        };
+
+        if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+        {
+            // WOW64 process, file system redirection applies.
+            si.FileName = Environment.ExpandEnvironmentVariables($@"%windir%\sysnative\{executable}");
+        }
+        else
+        {
+            si.FileName = Environment.ExpandEnvironmentVariables($@"%windir%\system32\{executable}");
+        }
+
+
+        Console.WriteLine($"Starting: {si.FileName} {si.Arguments}");
+
+        using var process = new Process();
+        process.StartInfo = si;
+        process.OutputDataReceived += (p, e) =>
+        {
+            if (e.Data != null)
+            {
+                Console.WriteLine($"{((Process)p).Id:00000}: {e.Data}");
+            }
+        };
+        process.ErrorDataReceived += (p, e) =>
+        {
+            if (e.Data != null)
+            {
+                Console.WriteLine($"{((Process)p).Id:00000}: {e.Data}");
+            }
+        };
+
+        if (!process.Start())
+        {
+            throw new InvalidOperationException($"Failed to start: {si.FileName} {si.Arguments}");
+        }
+
+        TestHelper.AttachProcess(process);
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Process with ID {process.Id} and command line '{si.FileName} {si.Arguments}' failed with exit code {process.ExitCode}");
+        }
     }
 }

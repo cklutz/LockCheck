@@ -283,6 +283,7 @@ internal static class NtDll
     {
         // Start with the default buffer size.
         uint bufferSize = s_mostRecentSize;
+        var infoClass = SYSTEM_INFORMATION_CLASS.SystemProcessInformation;
 
         while (true)
         {
@@ -292,7 +293,7 @@ internal static class NtDll
             try
             {
                 uint actualSize = 0;
-                uint status = NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation, bufferPtr, bufferSize, &actualSize);
+                uint status = NtQuerySystemInformation(infoClass, bufferPtr, bufferSize, &actualSize);
 
                 if (status != STATUS_INFO_LENGTH_MISMATCH)
                 {

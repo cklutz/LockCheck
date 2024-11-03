@@ -65,6 +65,8 @@ internal static partial class NativeMethods
     internal enum SYSTEM_INFORMATION_CLASS
     {
         SystemProcessInformation = 5,
+        SystemExtendedProcessInformation = 0x39,
+        SystemFullProcessInformation = 0x94
     }
 
 #if NET
@@ -868,7 +870,9 @@ internal static partial class NativeMethods
         //       or      rax, [rcx+8F8h]          // SequenceNumber | rax
         //       retn
         //    PsGetProcessStartKey endp
-        // 
+        //
+        // Other, random, "art" on the internet does it the same way.
+
         return ((ulong)GetBootId() << 0x30) | processSequenceNumber;
     }
 
@@ -895,11 +899,31 @@ internal static partial class NativeMethods
         internal IntPtr InheritedFromUniqueProcessId;
         internal uint HandleCount;
         internal uint SessionId;
-        internal UIntPtr PageDirectoryBase;
+
+        // This member looks promising in that it could contain the same value that the WMI "UniqueProcessKey"
+        // and thus also ETW "UniqueProcessKey". However, unofficial research has this to say:
+        //
+        // (see https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/process.htm):
+        // "The UniqueProcessKey is undefined for SystemProcessInformation [bug requires SystemExtendedProcessInformation,
+        // which in turn requires administration privileges] For the newer information classes it originally revealed the
+        // page number of the process’s page directory base. Version 6.0 instead reveals the address of the EPROCESS
+        // structure that represents the process as a kernel object. Whether the member was named UniqueProcessKey in
+        // these versions is not known. Whatever it was named, what it contained may have been thought to disclose too
+        // much: [>>] since version 6.1 the UniqueProcessKey is set identically to the UniqueProcessId. [<<]"
+        //
+        // FWIW, WMI still documents "UniqueProcessKey" as "The address of the process object in the kernel."
+        // This could of course be a totally different "address" than the one cited above, however (WMI/ETW)
+        // traces show values that look like this: UniqueProcessKey=0xFFFF8905CFFF1080. Which suspiciously looks
+        // like a kernel address.
+        //
+        // Anyway, I leave this comment here, should I (again!) attempt to use this member ;-)
+        // Still it would be nice if we could determine this value for the processes we find to be locking
+        // stuff and present them together with their PID, etc.
+        internal UIntPtr UniqueProcessKey;
+
         internal UIntPtr PeakVirtualSize;
         internal UIntPtr VirtualSize;
         internal uint PageFaultCount;
-
         internal UIntPtr PeakWorkingSetSize;
         internal UIntPtr WorkingSetSize;
         internal UIntPtr QuotaPeakPagedPoolUsage;
@@ -909,14 +933,12 @@ internal static partial class NativeMethods
         internal UIntPtr PagefileUsage;
         internal UIntPtr PeakPagefileUsage;
         internal UIntPtr PrivatePageCount;
-
         internal long ReadOperationCount;
         internal long WriteOperationCount;
         internal long OtherOperationCount;
         internal long ReadTransferCount;
         internal long WriteTransferCount;
         internal long OtherTransferCount;
-
         internal IntPtr Threads;
     }
 
@@ -924,9 +946,11 @@ internal static partial class NativeMethods
     {
         // This is only valid when PROCESS_INFORMATION_CLASS.ProcessInformation was used.
         // ProcessFullInformation (only as Admin) and ProcessExtendedInformation are different.
+
+        int threadStructSize = Marshal.SizeOf<SYSTEM_THREAD_INFORMATION>();
         return (int)(
-            IntPtr.Add(Marshal.OffsetOf(typeof(SYSTEM_PROCESS_INFORMATION), nameof(SYSTEM_PROCESS_INFORMATION.Threads)),
-            (int)(Marshal.SizeOf<SYSTEM_THREAD_INFORMATION>() * si.NumberOfThreads)));
+        IntPtr.Add(Marshal.OffsetOf(typeof(SYSTEM_PROCESS_INFORMATION), nameof(SYSTEM_PROCESS_INFORMATION.Threads)),
+        (int)(threadStructSize * si.NumberOfThreads)));
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -950,6 +974,19 @@ internal static partial class NativeMethods
         public uint ContextSwitchCount;  // Number of context switches
         public uint ThreadState;         // State of the thread
         public uint WaitReason;          // Reason the thread is in the wait state
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SYSTEM_EXTENDED_THREAD_INFORMATION
+    {
+        public SYSTEM_THREAD_INFORMATION ThreadInfo;
+        public IntPtr StackBase;
+        public IntPtr StackLimit;
+        public IntPtr Win32StartAddress;
+        public IntPtr TebBase;
+        public UIntPtr Reserved2;
+        public UIntPtr Reserved3;
+        public UIntPtr Reserved4;
     }
 
     [StructLayout(LayoutKind.Sequential)]
