@@ -134,6 +134,9 @@ public class NtDllTests
     [SupportedTestMethodPlatform("windows", requiresAdminRights: true)]
     public void EnumerateSystemProcesses_ShouldContainProcessSequenceNumber_IfSupported()
     {
+        // The .NET Framework implementation of EnumerateSystemProcesses() does not expose ProcessSequenceNumber,
+        // an possibly never will.
+#if NET
         var tempDir = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test"));
         tempDir.Create();
 
@@ -176,6 +179,7 @@ public class NtDllTests
         {
             TestHelper.TryDelete(tempDir);
         }
+#endif
     }
 
     private static string? GetReportDataValue(string reportFile, int processId, string dataId)
