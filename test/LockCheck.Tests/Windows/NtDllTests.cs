@@ -135,7 +135,7 @@ public class NtDllTests
     public void EnumerateSystemProcesses_ShouldContainProcessSequenceNumber_IfSupported()
     {
         // The .NET Framework implementation of EnumerateSystemProcesses() does not expose ProcessSequenceNumber,
-        // an possibly never will.
+        // and possibly never will.
 #if NET
         var tempDir = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".test"));
         tempDir.Create();

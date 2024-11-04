@@ -195,7 +195,11 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
 
         if (SupportsProcessSequenceNumber && peb.ProcessSequenceNumber == null)
         {
+#if NET
+            using var psn = new ScopedNativeMemory(stackalloc byte[sizeof(ulong)]);
+#else
             using var psn = new ScopedNativeMemory(Marshal.SizeOf<ulong>());
+#endif
             var buffer = (IntPtr)psn;
             if (SUCCEEDED(NtQueryInformationProcess(handle, PROCESS_INFORMATION_CLASS.ProcessSequenceNumber, ref buffer, psn.Size, IntPtr.Zero), peb))
             {
@@ -226,7 +230,11 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
 
         if (SupportsProcessSequenceNumber && peb.ProcessSequenceNumber == null)
         {
+#if NET
+            using var psn = new ScopedNativeMemory(stackalloc byte[sizeof(ulong)]);
+#else
             using var psn = new ScopedNativeMemory(Marshal.SizeOf<ulong>());
+#endif
             var buffer = (IntPtr)psn;
             if (SUCCEEDED(NtWow64QueryInformationProcess64(handle, PROCESS_INFORMATION_CLASS.ProcessSequenceNumber, ref buffer, psn.Size, IntPtr.Zero), peb))
             {
@@ -261,7 +269,11 @@ internal class Peb : IWin32ProcessDetails, IHasErrorState
 
             if (SupportsProcessSequenceNumber && peb.ProcessSequenceNumber == null)
             {
+#if NET
+                using var psn = new ScopedNativeMemory(stackalloc byte[sizeof(ulong)]);
+#else
                 using var psn = new ScopedNativeMemory(Marshal.SizeOf<ulong>());
+#endif
                 var buffer = (IntPtr)psn;
                 if (SUCCEEDED(NtQueryInformationProcessWow64(handle, PROCESS_INFORMATION_CLASS.ProcessSequenceNumber, ref buffer, psn.Size, IntPtr.Zero), peb))
                 {

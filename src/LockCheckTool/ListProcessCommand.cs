@@ -1,8 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Linq;
+using System.Threading;
 using LockCheck;
 
 namespace LockCheckTool;

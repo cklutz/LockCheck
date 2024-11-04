@@ -585,21 +585,6 @@ internal static partial class NativeMethods
         return -1;
     }
 
-    internal static string? GetSystemAccountName()
-    {
-        try
-        {
-            var sid = new SecurityIdentifier("S-1-5-18");
-            return sid.Translate(typeof(NTAccount)).Value;
-        }
-        catch
-        {
-        }
-
-        return null;
-    }
-
-
     internal static string? GetProcessOwner(SafeProcessHandle handle)
     {
         try
@@ -629,28 +614,20 @@ internal static partial class NativeMethods
 
     internal static bool ProcessTokenToSid(SafeAccessTokenHandle token, out IntPtr sid)
     {
-        const int bufLength = 256;
         sid = IntPtr.Zero;
-        var tu = IntPtr.Zero;
-        try
+#if NET
+        using var mem = new ScopedNativeMemory(stackalloc byte[256]);
+#else
+        using var mem = new ScopedNativeMemory(256);
+#endif
+        int cb = mem.Size;
+        var ret = GetTokenInformation(token, TOKEN_INFORMATION_CLASS.TokenUser, (IntPtr)mem, cb, ref cb);
+        if (ret)
         {
-            tu = Marshal.AllocHGlobal(bufLength);
-            int cb = bufLength;
-            var ret = GetTokenInformation(token, TOKEN_INFORMATION_CLASS.TokenUser, tu, cb, ref cb);
-            if (ret)
-            {
-                var tokUser = Marshal.PtrToStructure<TOKEN_USER>(tu);
-                sid = tokUser.User.Sid;
-            }
-            return ret;
+            var tokUser = Marshal.PtrToStructure<TOKEN_USER>((IntPtr)mem);
+            sid = tokUser.User.Sid;
         }
-        finally
-        {
-            if (tu != IntPtr.Zero)
-            {
-                Marshal.FreeHGlobal(tu);
-            }
-        }
+        return ret;
     }
 
     internal const int TOKEN_QUERY = 0x0008;
@@ -1250,28 +1227,39 @@ internal static partial class NativeMethods
     internal static string GetMessage(int errorCode) => $"{new Win32Exception(errorCode).Message}  (0x{errorCode:X8})";
 #endif
 
-    internal unsafe readonly struct ScopedNativeMemory : IDisposable
+    internal unsafe ref struct ScopedNativeMemory
     {
 #if NET
-        private readonly void* _buffer;
+        private readonly Span<byte> _initialBuffer;
+        private void* _buffer;
 #else
-        private readonly IntPtr _buffer;
+        private IntPtr _buffer;
 #endif
-        private readonly uint _size;
-
-        public ScopedNativeMemory(uint size)
-        {
-            _size = size;
-#if NET
-            _buffer = NativeMemory.Alloc(size);
-#else
-            _buffer = Marshal.AllocHGlobal((int)size);
-#endif
-        }
+        private int _size;
 
         public ScopedNativeMemory(int size)
         {
-            _size = (uint)size;
+            HeapAllocate(size);
+        }
+
+#if NET
+        public ScopedNativeMemory(Span<byte> initialBuffer)
+        {
+            _initialBuffer = initialBuffer;
+            _size = initialBuffer.Length;
+        }
+#endif
+
+        private void HeapAllocate(int size)
+        {
+#if DEBUG
+            if (IsHeapAllocated)
+            {
+                throw new InvalidOperationException("Already allocated");
+            }
+#endif
+
+            _size = size;
 #if NET
             _buffer = NativeMemory.Alloc((UIntPtr)size);
 #else
@@ -1279,12 +1267,12 @@ internal static partial class NativeMethods
 #endif
         }
 
-        public int Size => (int)_size;
+        public int Size => _size;
 
         public static explicit operator IntPtr(ScopedNativeMemory memory)
         {
 #if NET
-            return (IntPtr)memory._buffer;
+            return new IntPtr((void*)memory);
 #else
             return memory._buffer;
 #endif
@@ -1293,19 +1281,52 @@ internal static partial class NativeMethods
         public static explicit operator void*(ScopedNativeMemory memory)
         {
 #if NET
+            if (!memory.IsHeapAllocated)
+            {
+                fixed (void* ptr = memory._initialBuffer)
+                {
+                    return ptr;
+                }
+            }
+
             return memory._buffer;
 #else
             return (void*)memory._buffer;
 #endif
         }
 
+        public void Resize(int size)
+        {
+            Free();
+            HeapAllocate(size);
+        }
+
+        // No need to actually implement IDisposable. The compiler will pattern match for this,
+        // allowing to use this type with "using".
         public void Dispose()
         {
-#if NET
-            NativeMemory.Free(_buffer);
-#else
-            Marshal.FreeHGlobal(_buffer);
-#endif
+            Free();
         }
+
+        public void Free()
+        {
+            if (IsHeapAllocated)
+            {
+#if NET
+                NativeMemory.Free(_buffer);
+                _buffer = null;
+#else
+                Marshal.FreeHGlobal(_buffer);
+                _buffer = IntPtr.Zero;
+#endif
+            }
+        }
+
+        private bool IsHeapAllocated =>
+#if NET
+            _buffer != null;
+#else
+            _buffer != IntPtr.Zero;
+#endif
     }
 }

@@ -11,11 +11,8 @@ using LockCheck;
 using Spectre.Console;
 using Spectre.Console.Json;
 using Spectre.Console.Rendering;
-using System.Collections;
-using System.Runtime.ExceptionServices;
-
-
-
+using System.Runtime.InteropServices;
+using System.CommandLine.IO;
 
 
 #if FEATURE_JMSE_QUERY
@@ -32,54 +29,98 @@ internal abstract class LCCommand : Command
     protected LCCommand(string name, string? description = null)
         : base(name, description)
     {
-        this.SetHandler((context) =>
-        {
-            try
-            {
-                context.ExitCode = RunCommand(context);
-            }
-            catch (Exception ex)
-            {
-                LogVerbose(context.Console, ex.ToString());
-                context.ExitCode = ex.HResult;
-            }
-        });
+        this.SetHandler((context) => context.ExitCode = RunCommand(context));
     }
 
     protected abstract int RunCommand(InvocationContext context);
 
-    protected void LogVerbose(IConsole console, string message)
+    protected internal static void LogVerbose(IConsole console, string message)
     {
         if (Verbose)
         {
-            console.WriteLine(message);
+            LogCore(console, LogLevel.Verbose, message);
         }
     }
 
 #if NET
-    protected void LogVerbose(IConsole console, ref DefaultInterpolatedStringHandler handler)
+    protected internal static void LogVerbose(IConsole console, ref DefaultInterpolatedStringHandler handler)
     {
         if (Verbose)
         {
-            console.WriteLine(handler.ToStringAndClear());
+            LogCore(console, LogLevel.Verbose, handler.ToStringAndClear());
         }
     }
 #endif
 
-    protected void LogInfo(IConsole console, string message) => console.WriteLine(message);
+    protected internal static void LogInfo(IConsole console, string message) => LogCore(console, LogLevel.Info, message);
 #if NET
-    protected void LogInfo(IConsole console, ref DefaultInterpolatedStringHandler handler) => console.WriteLine(handler.ToStringAndClear());
+    protected internal static void LogInfo(IConsole console, ref DefaultInterpolatedStringHandler handler) => LogCore(console, LogLevel.Info, handler.ToStringAndClear());
 #endif
 
-    protected void LogWarning(IConsole console, string message) => console.Error.Write("warning: " + message + Environment.NewLine);
+    protected internal static void LogWarning(IConsole console, string message) => LogCore(console, LogLevel.Warning, message);
 #if NET
-    protected void LogWarning(IConsole console, ref DefaultInterpolatedStringHandler handler) => console.Error.Write("warning: " + handler.ToStringAndClear() + Environment.NewLine);
+    protected internal static void LogWarning(IConsole console, ref DefaultInterpolatedStringHandler handler) => LogCore(console, LogLevel.Warning, handler.ToStringAndClear());
 #endif
 
-    protected void LogError(IConsole console, string message) => console.Error.Write("error: " + message + Environment.NewLine);
+    protected internal static void LogError(IConsole console, string message) => LogCore(console, LogLevel.Error, message);
 #if NET
-    protected void LogError(IConsole console, ref DefaultInterpolatedStringHandler handler) => console.Error.Write("error: " + handler.ToStringAndClear() + Environment.NewLine);
+    protected internal static void LogError(IConsole console, ref DefaultInterpolatedStringHandler handler) => LogCore(console, LogLevel.Error, handler.ToStringAndClear());
 #endif
+
+    private enum LogLevel { Verbose, Info, Warning, Error };
+    private static void LogCore(IConsole console, LogLevel logLevel, string message)
+    {
+        bool isRedirected = false;
+        string? prefix = null;
+        var writer = console.Out;
+
+        switch (logLevel)
+        {
+            case LogLevel.Verbose:
+            case LogLevel.Info:
+                isRedirected = console.IsOutputRedirected;
+                writer = console.Out;
+                break;
+            case LogLevel.Warning:
+                isRedirected = console.IsErrorRedirected;
+                writer = console.Error;
+                prefix = "warning: ";
+                break;
+            case LogLevel.Error:
+                isRedirected = console.IsErrorRedirected;
+                writer = console.Error;
+                prefix = "error: ";
+                break;
+        }
+
+        if (isRedirected)
+        {
+            writer.Write($"{prefix}{message}{Environment.NewLine}");
+        }
+        else
+        {
+            FormattableString markup;
+            switch (logLevel)
+            {
+                case LogLevel.Verbose:
+                    markup = $"[gray]{message}[/]";
+                    break;
+                case LogLevel.Info:
+                    markup = $"{message}";
+                    break;
+                case LogLevel.Warning:
+                    markup = $"[bold yellow]{message}[/]";
+                    break;
+                case LogLevel.Error:
+                default:
+                    markup = $"[bold red]{message}[/]";
+                    break;
+            }
+
+            // If not redirected, there is no difference of whether we write to stderr/stdout.
+            AnsiConsole.MarkupLineInterpolated(markup);
+        }
+   }
 
     protected IOutput GetActualOutput(InvocationContext context, string? outputPath)
     {

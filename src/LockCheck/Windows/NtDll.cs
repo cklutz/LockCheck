@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
@@ -56,7 +57,7 @@ internal static class NtDll
             else if (pi.NamePtr != IntPtr.Zero)
             {
                 string? name = Marshal.PtrToStringUni(pi.NamePtr);
-                if (name != null && TryGetSystemPseudoProcessExecutable(name, out var executable))
+                if (name != null && IsSystemPseudoProcessByName(name, out var executable))
                 {
                     var pseudoPeb = new PseudoPeb(pi, executable, systemAccount, processSequenceNumber: processSequenceNumber);
                     res![pseudoPeb.ProcessId] = pseudoPeb;
@@ -68,24 +69,7 @@ internal static class NtDll
         return result;
     }, LazyThreadSafetyMode.ExecutionAndPublication);
 
-    private static string? GetSystemAccountName()
-    {
-        try
-        {
-            var sid = new SecurityIdentifier("S-1-5-18");
-            return sid.Translate(typeof(NTAccount)).Value;
-        }
-        catch
-        {
-        }
-
-        return null;
-    }
-
-    internal static bool TryGetSystemPseudoProcess(int processId, [NotNullWhen(true)] out PseudoPeb? info)
-        => s_systemPseudoProcesses.Value.TryGetValue(processId, out info);
-
-    private static bool TryGetSystemPseudoProcessExecutable(string? processName, out string? executablePath)
+    private static bool IsSystemPseudoProcessByName(string? processName, out string? executablePath)
     {
         executablePath = null;
         if (processName != null)
@@ -114,13 +98,27 @@ internal static class NtDll
         return false;
     }
 
+    private static string? GetSystemAccountName()
+    {
+        try
+        {
+            var sid = new SecurityIdentifier("S-1-5-18");
+            return sid.Translate(typeof(NTAccount)).Value;
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    internal static bool TryGetSystemPseudoProcess(int processId, [NotNullWhen(true)] out PseudoPeb? info)
+        => s_systemPseudoProcesses.Value.TryGetValue(processId, out info);
+
     public static HashSet<IWin32ProcessDetails> GetAllProcesses()
     {
         return EnumerateSystemProcesses(null, (object?)null,
-            static (_, idx, pi, seq) =>
-            {
-                return (IWin32ProcessDetails)new Peb(pi, seq);
-            })
+            static (_, idx, pi, seq) => (IWin32ProcessDetails)new Peb(pi, seq))
             .Select(v => v.Value)
             .ToHashSet();
     }
@@ -160,31 +158,32 @@ internal static class NtDll
             throw new ArgumentNullException(nameof(result));
         }
 
-        IntPtr bufferPtr = IntPtr.Zero;
         var statusBlock = new IO_STATUS_BLOCK();
 
-        try
+        using (var handle = GetFileHandle(path))
         {
-            using (var handle = GetFileHandle(path))
+            if (handle.IsInvalid)
             {
-                if (handle.IsInvalid)
-                {
-                    // The file does not exist or is gone already. Could be a race condition. There is nothing we can contribute.
-                    // Doing this, exhibits the same behavior as the RestartManager implementation.
-                    return;
-                }
+                // The file does not exist or is gone already. Could be a race condition. There is nothing we can contribute.
+                // Doing this, exhibits the same behavior as the RestartManager implementation.
+                return;
+            }
 
-                uint bufferSize = 16384;
-                bufferPtr = Marshal.AllocHGlobal((int)bufferSize);
-
+            // The resulting FILE_PROCESS_IDS_USING_FILE_INFORMATION structure is rather small (on 64 bit Windows,
+            // 12 byte + padding). Additionally, we assume that there aren't a whole lot of processes locking the
+            // same path. Thus choosing our initial buffer size rather conservative for about 8 processes.
+            int bufferSize = (IntPtr.Size + sizeof(int)) * 8;
+#if NET
+            using (var mem = new ScopedNativeMemory(stackalloc byte[bufferSize]))
+#else
+            using (var mem = new ScopedNativeMemory(bufferSize))
+#endif
+            {
                 uint status;
-                while ((status = NtQueryInformationFile(handle, ref statusBlock, bufferPtr, bufferSize,
+                while ((status = NtQueryInformationFile(handle, ref statusBlock, (IntPtr)mem, (uint)mem.Size,
                     FILE_INFORMATION_CLASS.FileProcessIdsUsingFileInformation)) == STATUS_INFO_LENGTH_MISMATCH)
                 {
-                    Marshal.FreeHGlobal(bufferPtr);
-                    bufferPtr = IntPtr.Zero;
-                    bufferSize *= 2;
-                    bufferPtr = Marshal.AllocHGlobal((int)bufferSize);
+                    mem.Resize(mem.Size * 2);
                 }
 
                 if (status != STATUS_SUCCESS)
@@ -199,7 +198,7 @@ internal static class NtDll
                 //        ULONG_PTR ProcessIdList[1];
                 //    }
 
-                IntPtr readBuffer = bufferPtr;
+                IntPtr readBuffer = (IntPtr)mem;
                 int numEntries = Marshal.ReadInt32(readBuffer); // NumberOfProcessIdsInList
                 readBuffer += IntPtr.Size;
 
@@ -213,13 +212,6 @@ internal static class NtDll
                     }
                     readBuffer += IntPtr.Size;
                 }
-            }
-        }
-        finally
-        {
-            if (bufferPtr != IntPtr.Zero)
-            {
-                Marshal.FreeHGlobal(bufferPtr);
             }
         }
     }
@@ -287,40 +279,33 @@ internal static class NtDll
 
         while (true)
         {
-            // some platforms require the buffer to be 64-bit aligned and NativeLibrary.Alloc guarantees sufficient alignment.
-            void* bufferPtr = NativeMemory.Alloc(bufferSize);
+            // Some platforms require the buffer to be 64-bit aligned. ScopedNativeMemory guarantees sufficient alignment.
+            using var mem = new ScopedNativeMemory((int)bufferSize);
 
-            try
+            uint actualSize = 0;
+            uint status = NtQuerySystemInformation(infoClass, (void*)mem, bufferSize, &actualSize);
+
+            if (status != STATUS_INFO_LENGTH_MISMATCH)
             {
-                uint actualSize = 0;
-                uint status = NtQuerySystemInformation(infoClass, bufferPtr, bufferSize, &actualSize);
-
-                if (status != STATUS_INFO_LENGTH_MISMATCH)
+                // see definition of NT_SUCCESS(Status) in SDK
+                if ((int)status < 0)
                 {
-                    // see definition of NT_SUCCESS(Status) in SDK
-                    if ((int)status < 0)
-                    {
-                        throw GetException(status);
-                    }
-
-                    // Remember last buffer size for next attempt. Note that this may also result in smaller
-                    // buffer sizes for further attempts, as the live processes can also decrease in comparison
-                    // to a previous call.
-                    Debug.Assert(actualSize > 0 && actualSize <= bufferSize, $"actualSize={actualSize} bufferSize={bufferSize} (0x{status:x8}).");
-                    s_mostRecentSize = GetEstimatedBufferSize(actualSize);
-
-                    return HandleProcesses(new ReadOnlySpan<byte>(bufferPtr, (int)actualSize), processIds, data, newEntry);
+                    throw GetException(status);
                 }
-                else
-                {
-                    // Buffer was too small; retry with a larger buffer.
-                    Debug.Assert(actualSize > bufferSize, $"actualSize={actualSize} bufferSize={bufferSize} (0x{status:x8}).");
-                    bufferSize = GetEstimatedBufferSize(actualSize);
-                }
+
+                // Remember last buffer size for next attempt. Note that this may also result in smaller
+                // buffer sizes for further attempts, as the live processes can also decrease in comparison
+                // to a previous call.
+                Debug.Assert(actualSize > 0 && actualSize <= bufferSize, $"actualSize={actualSize} bufferSize={bufferSize} (0x{status:x8}).");
+                s_mostRecentSize = GetEstimatedBufferSize(actualSize);
+
+                return HandleProcesses(new ReadOnlySpan<byte>((void*)mem, (int)actualSize), processIds, data, newEntry);
             }
-            finally
+            else
             {
-                NativeMemory.Free(bufferPtr);
+                // Buffer was too small; retry with a larger buffer.
+                Debug.Assert(actualSize > bufferSize, $"actualSize={actualSize} bufferSize={bufferSize} (0x{status:x8}).");
+                bufferSize = GetEstimatedBufferSize(actualSize);
             }
         }
 
